@@ -78,7 +78,7 @@ Para volver a desplegar tras hacer cambios: `vercel --prod`.
 
 Cada vez que hagas `git push` a `main`, Vercel vuelve a desplegar automáticamente.
 
-## Notas para el informe técnico
+## NOTAS PARA EL INFORME TÉCNICO
 
 - El almacenamiento es **en memoria** (estado de React), simulando el MER
   definido en el documento técnico: Docente, Estudiante, Curso, Inscripción,
@@ -87,3 +87,5 @@ Cada vez que hagas `git push` a `main`, Vercel vuelve a desplegar automáticamen
   validar el flujo funcional (UI y lógica) antes de construir la API REST y
   conectar una base de datos persistente.
 - El módulo de Reportes exporta a CSV desde el navegador (sin backend).
+
+
