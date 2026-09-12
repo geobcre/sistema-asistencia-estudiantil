@@ -3,7 +3,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const dbPath = path.join(__dirname, '..', 'asistencia.db')
+
+// En pruebas (NODE_ENV=test) se usa una base de datos en memoria, para no
+// tocar ni depender del archivo real asistencia.db.
+const dbPath = process.env.NODE_ENV === 'test'
+  ? ':memory:'
+  : path.join(__dirname, '..', 'asistencia.db')
 
 export const db = new Database(dbPath)
 db.pragma('journal_mode = WAL')
