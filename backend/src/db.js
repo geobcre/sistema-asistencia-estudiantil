@@ -59,6 +59,11 @@ db.exec(`
     estado TEXT NOT NULL CHECK(estado IN ('presente','ausente','tarde','justificado')),
     UNIQUE(id_sesion, id_estudiante)
   );
+
+  -- Los UNIQUE de arriba ya indexan (id_estudiante, id_curso) e (id_sesion, id_estudiante)
+  -- por su columna líder. Estos cubren las queries que filtran por la otra columna.
+  CREATE INDEX IF NOT EXISTS idx_inscripciones_curso ON inscripciones(id_curso);
+  CREATE INDEX IF NOT EXISTS idx_asistencias_estudiante ON asistencias(id_estudiante);
 `)
 
 // --- Semilla inicial: solo si la tabla de docentes está vacía ---
