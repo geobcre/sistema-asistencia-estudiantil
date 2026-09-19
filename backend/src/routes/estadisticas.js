@@ -5,11 +5,34 @@ const router = Router()
 
 const UMBRAL_RIESGO = 75
 
+function calcularPorcentaje(presentes, totalSesiones) {
+  return totalSesiones > 0 ? Math.round((presentes / totalSesiones) * 100) : 0
+}
+
+// Una fila agregada por (estudiante, curso) inscrito, sin importar si tiene
+// asistencias registradas. Filtra por curso y/o estudiante en una sola query,
+// en vez de repetir un COUNT por cada alumno.
+function statsPorEstudianteYCurso({ idCurso, idEstudiante } = {}) {
+  let sql = `
+    SELECT i.id_estudiante, i.id_curso,
+           COUNT(DISTINCT s.id) AS totalSesiones,
+           COUNT(DISTINCT CASE WHEN a.estado IN ('presente','tarde') THEN a.id_sesion END) AS presentes
+    FROM inscripciones i
+    JOIN sesiones s ON s.id_curso = i.id_curso
+    LEFT JOIN asistencias a ON a.id_sesion = s.id AND a.id_estudiante = i.id_estudiante
+    WHERE 1 = 1
+  `
+  const params = []
+  if (idCurso) { sql += ' AND i.id_curso = ?'; params.push(idCurso) }
+  if (idEstudiante) { sql += ' AND i.id_estudiante = ?'; params.push(idEstudiante) }
+  sql += ' GROUP BY i.id_estudiante, i.id_curso'
+
+  return db.prepare(sql).all(...params)
+}
+
 function estadisticasPorCurso(idCurso) {
   const curso = db.prepare('SELECT * FROM cursos WHERE id = ?').get(idCurso)
   if (!curso) return null
-
-  const totalSesiones = db.prepare('SELECT COUNT(*) AS n FROM sesiones WHERE id_curso = ?').get(idCurso).n
 
   const alumnos = db.prepare(`
     SELECT e.id, e.nombre, e.apellido
@@ -18,15 +41,12 @@ function estadisticasPorCurso(idCurso) {
     WHERE i.id_curso = ?
   `).all(idCurso)
 
-  const resultado = alumnos.map((est) => {
-    const presentes = db.prepare(`
-      SELECT COUNT(*) AS n FROM asistencias a
-      JOIN sesiones s ON s.id = a.id_sesion
-      WHERE s.id_curso = ? AND a.id_estudiante = ? AND a.estado IN ('presente','tarde')
-    `).get(idCurso, est.id).n
+  const stats = statsPorEstudianteYCurso({ idCurso })
+  const statsPorAlumno = new Map(stats.map((s) => [s.id_estudiante, s]))
 
-    const porcentaje = totalSesiones > 0 ? Math.round((presentes / totalSesiones) * 100) : 0
-    return { ...est, presentes, totalSesiones, porcentaje }
+  const resultado = alumnos.map((est) => {
+    const { totalSesiones = 0, presentes = 0 } = statsPorAlumno.get(est.id) ?? {}
+    return { ...est, presentes, totalSesiones, porcentaje: calcularPorcentaje(presentes, totalSesiones) }
   })
 
   return { curso, alumnos: resultado }
@@ -50,15 +70,12 @@ router.get('/estudiante/:id', (req, res) => {
     WHERE i.id_estudiante = ?
   `).all(req.params.id)
 
+  const stats = statsPorEstudianteYCurso({ idEstudiante: req.params.id })
+  const statsPorCurso = new Map(stats.map((s) => [s.id_curso, s]))
+
   const detalle = cursos.map((c) => {
-    const totalSesiones = db.prepare('SELECT COUNT(*) AS n FROM sesiones WHERE id_curso = ?').get(c.id).n
-    const presentes = db.prepare(`
-      SELECT COUNT(*) AS n FROM asistencias a
-      JOIN sesiones s ON s.id = a.id_sesion
-      WHERE s.id_curso = ? AND a.id_estudiante = ? AND a.estado IN ('presente','tarde')
-    `).get(c.id, req.params.id).n
-    const porcentaje = totalSesiones > 0 ? Math.round((presentes / totalSesiones) * 100) : 0
-    return { idCurso: c.id, nombre: c.nombre, porcentaje }
+    const { totalSesiones = 0, presentes = 0 } = statsPorCurso.get(c.id) ?? {}
+    return { idCurso: c.id, nombre: c.nombre, porcentaje: calcularPorcentaje(presentes, totalSesiones) }
   })
 
   const promedioGlobal = detalle.length > 0
