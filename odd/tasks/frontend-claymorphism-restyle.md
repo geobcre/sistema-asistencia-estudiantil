@@ -1,9 +1,9 @@
-# Restyle frontend: claymorphism + vibrant palette
+# Restyle frontend: visual language iterations
 
 ## Objective
 Restyle the existing attendance admin panel (not a new landing page — decision confirmed
-with the user) into a playful claymorphism look with vibrant colors, adapting the
-"educational platform" concepts requested to what this app actually is.
+with the user) with a visual language adapted from marketing-landing-page prompts the user
+supplies, mapping their content concepts onto what this app actually is.
 
 ## Why
 User asked for a landing-page-style prompt (claymorphism cards, course catalog preview,
@@ -11,6 +11,18 @@ progress tracking demo, testimonials, enrollment CTA). Clarified with the user: 
 internal school attendance tool, not a course marketplace, so the visual language is
 adopted but content concepts are mapped onto real features. Testimonials have no backing
 data and would be fabricated — dropped rather than invented.
+
+## Round 2 (superseding the palette below)
+User reviewed the claymorphism/vibrant result on localhost and didn't like the colors.
+New source prompt: "caring veterinary clinic landing page, soft UI elements, services
+overview, vet team profiles, emergency contact section, appointment booking, calming
+pet-friendly colors." Same mapping approach as round 1: keep the 6 real sections, adopt
+the *style* (soft UI / neumorphism, calming palette) and the content concepts that have a
+real analogue (vet team profiles → Docentes gets profile-style treatment), drop what
+doesn't (no fabricated "emergency contact" section, no literal "appointment booking" flow
+— sesiones/inscripciones already covers that ground). Reopening the design-token and
+per-component checklist items below for this pass; the structural additions from round 1
+(Cursos catalog grid, Estadisticas progress bars) are kept and re-skinned, not rebuilt.
 
 ## Scope
 - `src/styles.css`: new design tokens (vibrant palette, claymorphism shadow recipe,
@@ -47,7 +59,7 @@ data and would be fabricated — dropped rather than invented.
 - Manual verification: `npm run dev` (frontend) + browser check of all 6 sections,
   confirm no regressions (forms submit, table actions work, stamp upsert works).
 
-## Progress
+## Progress — Round 1 (claymorphism, superseded)
 - [x] Design tokens + global styles rewritten (styles.css)
 - [x] Font swap (index.html)
 - [x] Sidebar restyle (App.jsx)
@@ -55,6 +67,20 @@ data and would be fabricated — dropped rather than invented.
 - [x] Estadisticas: progress bars
 - [x] Asistencia: clay stamp buttons
 - [x] Docentes/Estudiantes/Reportes: restyled via shared classes
+- [x] Build passes
+- [x] Manual browser verification across all sections
+
+## Progress — Round 2 (soft UI, calming palette)
+- [x] Design tokens + global styles rewritten for soft-UI/neumorphism (styles.css)
+- [x] Font swap if needed (index.html) — evaluate whether Fredoka/Nunito still fit a
+      calmer tone or need replacing (e.g. Quicksand/Comfortaa + Nunito)
+- [x] Sidebar restyle to soft-UI look
+- [x] Cursos: catalog cards re-skinned (structure kept)
+- [x] Estadisticas: progress bars re-skinned (structure kept)
+- [x] Asistencia: stamp buttons re-skinned as soft rounded controls (less "puffy 3D")
+- [x] Docentes: add lightweight profile-card touch (initials avatar) — analogue of "vet
+      team profiles"
+- [x] Estudiantes/Reportes: restyled via shared classes
 - [x] Build passes
 - [x] Manual browser verification across all sections
 
@@ -111,3 +137,85 @@ data and would be fabricated — dropped rather than invented.
 None — restyle complete and verified. Optional follow-up (not requested): a project
 `run` skill for this app's dev-server + puppeteer-core verification flow, since no such
 skill existed and one had to be improvised this session.
+
+## Round 2 write-up (soft UI / neumorphism, calming palette)
+
+### Design tokens chosen
+- Background: warm cream/sand `#f2ede2`; cards/surface a barely-lighter warm cream
+  `#faf8f2` (was lavender `#efe6fb`/`#fdfbff`).
+- Ink: calm charcoal-sage `#3d4a44` (was violet-tinted `#392b56`); ink-soft muted sage-gray
+  `#8a938b`.
+- Brand/accent: replaced vibrant violet/pink entirely. Sidebar/primary brand is now sage
+  green `#6b9080` (dark `#4f6f5e`, soft `#e4ede8`). The single warm accent (used only for
+  `.btn-cta` "Inscribir") is a dusty terracotta/peach `#d98e73` (dark `#b96f55`, soft
+  `#f8e8e0`), blended with the brand in a gradient rather than a saturated pink.
+- Semantic attendance colors kept distinguishable but pulled into the same muted register:
+  presente = soft sage/mint `#7fae82`, ausente = dusty rose/muted terracotta `#cf8783`
+  (was harsh coral `#ff6b6b`), tarde = soft honey/mustard `#d2a656`, justificado = soft
+  periwinkle `#93a8d9` (hue kept, desaturated slightly). Estadisticas progress-bar
+  thresholds unchanged and re-checked against `backend/src/routes/estadisticas.js`
+  (UMBRAL_RIESGO=75, "bueno" at 85): >=85 → presente (calm green), 75-84 → tarde (calm
+  amber), <75 → ausente (calm terracotta/rose, at risk). Verified in the browser: 100%/67%
+  (green/coral, Matemática I) and 100%/0% (green/coral, Lenguaje) render with the correct
+  tier colors.
+- Radius: reduced from claymorphism's 24px/16px to 18px (cards) / 14px (inputs) — smaller,
+  gentler. Pills stay fully round.
+- Shadow recipe renamed `--clay-shadow*` → `--soft-shadow*` and rewritten: single warm
+  neutral tone (`rgba(148,132,108,…)` shadow + soft white highlight) at much lower opacity
+  (0.14-0.18 vs 0.14-0.25 dual-saturated-violet before) and shorter offsets (4-7px vs
+  5-12px), so surfaces read as gently embossed/pressed rather than "puffy 3D." Confirmed
+  by grep that no JSX references the old `--clay-*` variable names directly (they're only
+  consumed inside styles.css), so the rename was safe.
+- Fonts: swapped display font Fredoka → **Quicksand** (calmer, still rounded/warm but not
+  bold/playful); body font Nunito unchanged. Updated the Google Fonts `<link>` in
+  `index.html` and `--font-display` in `styles.css`.
+- Sidebar nav emoji icons (`.nav-icon`, from round 1) kept as-is — no logic change.
+
+### Docentes avatar treatment
+Added `iniciales(docente)` helper in `src/components/Docentes.jsx` that derives two-letter
+initials from `nombre`/`apellido` (first letter of each, uppercased, no image upload).
+Rendered as a new `.avatar-initials` circular badge (soft-UI shadow, brand-soft
+background/brand-dark text) next to the name in the Docentes table row, wrapped in a new
+`.docente-nombre` flex container. No structural/logic change beyond this — CRUD behavior
+untouched. Verified in-browser: avatars "MS", "HR", "EV" rendered correctly for the three
+seeded docentes.
+
+### Verification performed
+- `npm run build`: passed, no errors.
+- Browser verification: performed via headless Chrome + puppeteer-core, installed
+  temporarily with `npm install --no-save puppeteer-core` and removed afterward
+  (`npm uninstall puppeteer-core`); confirmed `package.json`/`package-lock.json` unchanged
+  by the temporary install (claude-in-chrome extension was not connected in this session,
+  same fallback as round 1). Script navigated all 6 nav sections against the real backend
+  (SQLite dev data) and confirmed:
+  - All 6 sections render with the new soft-UI palette/shadows, screenshots captured for
+    each (Docentes, Estudiantes, Cursos, Asistencia, Estadísticas, Reportes).
+  - Cursos catalog grid re-skinned, still renders the 3 real cursos (Matemática I,
+    Lenguaje, Ciencias Naturales) with nombre/código/horario/docente; table + forms intact.
+  - Estadisticas progress bars re-skinned and color-coded correctly per the 3-tier rule
+    (verified computed `background-color` of `.progress-fill` matched `--presente`/
+    `--tarde`/`--ausente` for the corresponding percentages, e.g. 100% → sage green,
+    67%/33%/0% → dusty rose).
+  - Asistencia: inspected the stamp buttons' classes/colors without re-submitting new
+    marks — the "P" stamp already marked in round 1 (Ana García / Matemática I) still
+    shows `is-set` with the new re-skinned filled color, confirming the toggle CSS still
+    works without creating additional dev-DB rows this round.
+  - Docentes: avatar-initials badges confirmed rendering real seeded data (see above); no
+    new docente created/deleted this round.
+  - No new persistent test data created: `git status` shows no change to
+    `backend/asistencia.db` (only WAL/SHM churn from ordinary read queries during the dev
+    session, not a data mutation).
+  - Console messages showed only the same two pre-existing, unrelated items noted in round
+    1: a 404 for `/favicon.ico` and the React "missing key" warning in `Cursos.jsx`'s
+    existing table-row fragment (untouched by this or the round 1 change). No `pageerror`
+    events in any section.
+
+### Out of scope / not done (round 2)
+- No emergency-contact section or fabricated appointment-booking flow, per the brief.
+- No backend changes.
+- Did not fix the pre-existing missing-`key` warning in `Cursos.jsx` (unrelated, out of
+  scope for a visual-only pass).
+- Did not add a favicon (pre-existing gap).
+- Did not add an avatar treatment to the Cursos catalog card's docente line (`nombreDocente`
+  returns a plain string there, not the docente object) — kept to the JSX/logic-preserving
+  constraint; the table-row avatar in Docentes is the primary "vet team profile" analogue.

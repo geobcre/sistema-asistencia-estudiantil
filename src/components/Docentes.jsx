@@ -39,6 +39,12 @@ export default function Docentes({ store }) {
     setForm({ nombre: docente.nombre, apellido: docente.apellido, correo: docente.correo ?? '' })
   }
 
+  function iniciales(docente) {
+    const n = docente.nombre?.trim()?.[0] ?? ''
+    const a = docente.apellido?.trim()?.[0] ?? ''
+    return `${n}${a}`.toUpperCase() || '—'
+  }
+
   async function eliminar(id) {
     try {
       await api.eliminarDocente(id)
@@ -113,7 +119,12 @@ export default function Docentes({ store }) {
             <tbody>
               {docentes.map((d) => (
                 <tr key={d.id}>
-                  <td>{d.nombre} {d.apellido}</td>
+                  <td>
+                    <span className="docente-nombre">
+                      <span className="avatar-initials">{iniciales(d)}</span>
+                      {d.nombre} {d.apellido}
+                    </span>
+                  </td>
                   <td className="muted">{d.correo || '—'}</td>
                   <td className="row-actions">
                     <button className="link-btn" onClick={() => editar(d)}>Editar</button>
