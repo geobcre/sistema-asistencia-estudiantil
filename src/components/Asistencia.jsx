@@ -89,7 +89,7 @@ export default function Asistencia({ store }) {
         </p>
       </header>
 
-      {error && <p className="muted" style={{ color: 'var(--clay)' }}>{error}</p>}
+      {error && <p className="muted" style={{ color: 'var(--ausente)' }}>{error}</p>}
 
       <div className="card roster-controls">
         <label>

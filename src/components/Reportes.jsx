@@ -57,7 +57,7 @@ export default function Reportes({ store }) {
         <p className="section-sub">Filtra por curso y rango de fechas, y exporta a CSV.</p>
       </header>
 
-      {error && <p className="muted" style={{ color: 'var(--clay)' }}>{error}</p>}
+      {error && <p className="muted" style={{ color: 'var(--ausente)' }}>{error}</p>}
 
       <div className="card roster-controls">
         <label>

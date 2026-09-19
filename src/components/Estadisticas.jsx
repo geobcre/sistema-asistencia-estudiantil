@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 
 const UMBRAL_RIESGO = 75
+const UMBRAL_BUENO = 85
+
+function nivelProgreso(porcentaje) {
+  if (porcentaje >= UMBRAL_BUENO) return 'progress-good'
+  if (porcentaje >= UMBRAL_RIESGO) return 'progress-warning'
+  return 'progress-risk'
+}
 
 export default function Estadisticas({ store }) {
   const { cursos } = store
@@ -38,7 +45,7 @@ export default function Estadisticas({ store }) {
         <p className="section-sub">Porcentaje de asistencia por estudiante y por curso.</p>
       </header>
 
-      {error && <p className="muted" style={{ color: 'var(--clay)' }}>{error}</p>}
+      {error && <p className="muted" style={{ color: 'var(--ausente)' }}>{error}</p>}
 
       <div className="card roster-controls">
         <label>
@@ -82,9 +89,15 @@ export default function Estadisticas({ store }) {
                   <td>{a.nombre} {a.apellido}</td>
                   <td className="muted">{a.presentes} / {a.totalSesiones}</td>
                   <td>
-                    <span className={`pill ${a.porcentaje < UMBRAL_RIESGO ? 'pill-warning' : 'pill-ok'}`}>
-                      {a.porcentaje}%
-                    </span>
+                    <div className="progress-bar">
+                      <div className="progress-track">
+                        <div
+                          className={`progress-fill ${nivelProgreso(a.porcentaje)}`}
+                          style={{ width: `${Math.min(100, Math.max(0, a.porcentaje))}%` }}
+                        />
+                      </div>
+                      <span className="progress-value">{a.porcentaje}%</span>
+                    </div>
                   </td>
                 </tr>
               ))}

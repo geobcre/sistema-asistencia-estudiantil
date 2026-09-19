@@ -57,7 +57,7 @@ export default function Docentes({ store }) {
         <p className="section-sub">Alta, edición y baja del personal docente.</p>
       </header>
 
-      {error && <p className="muted" style={{ color: 'var(--clay)' }}>{error}</p>}
+      {error && <p className="muted" style={{ color: 'var(--ausente)' }}>{error}</p>}
 
       <div className="panel-grid">
         <form className="card form-card" onSubmit={guardar}>

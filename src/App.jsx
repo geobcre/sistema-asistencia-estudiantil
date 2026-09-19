@@ -8,12 +8,12 @@ import Estadisticas from './components/Estadisticas.jsx'
 import Reportes from './components/Reportes.jsx'
 
 const SECCIONES = [
-  { id: 'docentes', label: 'Docentes', numero: '01' },
-  { id: 'estudiantes', label: 'Estudiantes', numero: '02' },
-  { id: 'cursos', label: 'Cursos', numero: '03' },
-  { id: 'asistencia', label: 'Asistencia', numero: '04' },
-  { id: 'estadisticas', label: 'Estadísticas', numero: '05' },
-  { id: 'reportes', label: 'Reportes', numero: '06' },
+  { id: 'docentes', label: 'Docentes', icono: '🧑‍🏫' },
+  { id: 'estudiantes', label: 'Estudiantes', icono: '🎓' },
+  { id: 'cursos', label: 'Cursos', icono: '📚' },
+  { id: 'asistencia', label: 'Asistencia', icono: '✅' },
+  { id: 'estadisticas', label: 'Estadísticas', icono: '📊' },
+  { id: 'reportes', label: 'Reportes', icono: '📄' },
 ]
 
 export default function App() {
@@ -55,7 +55,7 @@ export default function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">Ⓐ</span>
+          <span className="brand-mark">📋</span>
           <div>
             <p className="brand-title">Control de Asistencia</p>
             <p className="brand-sub">Backend real · SQLite</p>
@@ -68,7 +68,7 @@ export default function App() {
               className={`nav-item ${vista === s.id ? 'is-active' : ''}`}
               onClick={() => setVista(s.id)}
             >
-              <span className="nav-num">{s.numero}</span>
+              <span className="nav-icon">{s.icono}</span>
               {s.label}
             </button>
           ))}

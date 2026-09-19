@@ -104,7 +104,23 @@ export default function Cursos({ store }) {
         <p className="section-sub">Cursos, docente asignado y estudiantes inscritos.</p>
       </header>
 
-      {error && <p className="muted" style={{ color: 'var(--clay)' }}>{error}</p>}
+      {error && <p className="muted" style={{ color: 'var(--ausente)' }}>{error}</p>}
+
+      <div className="catalog-grid">
+        {cursos.map((c) => (
+          <article className="catalog-card" key={`catalogo-${c.id}`}>
+            <span className="catalog-card-code">{c.codigo || 'Sin código'}</span>
+            <h3 className="catalog-card-name">{c.nombre}</h3>
+            <div className="catalog-card-meta">
+              <span>🕐 <strong>{c.horario || 'Horario por definir'}</strong></span>
+              <span>🧑‍🏫 <strong>{nombreDocente(c.id_docente)}</strong></span>
+            </div>
+          </article>
+        ))}
+        {cursos.length === 0 && (
+          <p className="muted">No hay cursos registrados todavía.</p>
+        )}
+      </div>
 
       <div className="panel-grid">
         <form className="card form-card" onSubmit={guardar}>
@@ -208,7 +224,7 @@ export default function Cursos({ store }) {
                                 <option key={s.id} value={s.id}>{s.nombre} {s.apellido}</option>
                               ))}
                             </select>
-                            <button className="btn btn-secondary" onClick={() => inscribir(c.id)}>Inscribir</button>
+                            <button className="btn btn-cta" onClick={() => inscribir(c.id)}>Inscribir</button>
                           </div>
                         </div>
                       </td>
