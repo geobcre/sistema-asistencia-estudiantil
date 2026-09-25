@@ -58,7 +58,7 @@ Sigue las instrucciones en pantalla (te pedirá iniciar sesión con tu cuenta de
 Vercel la primera vez). Al final te dará una URL pública ya desplegada.
 Para volver a desplegar tras hacer cambios: `vercel --prod`.
 
-**Opción B — con GitHub (recomendada para el proyecto académico):**
+**Opción B — Usando GitHub (recomendada para el proyecto académico):**
 
 1. Crea un repositorio nuevo en GitHub y sube esta carpeta:
 
