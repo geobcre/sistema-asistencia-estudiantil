@@ -82,7 +82,7 @@ Cada vez que hagas `git push` a `main`, Vercel vuelve a desplegar automáticamen
 
 ## NOTAS PARA EL INFORME TÉCNICO
 
-- El almacenamiento es **en memoria** (estado de React), simulando el MER
+- El almacenamiento es **En memoria** (estado de React), simulando el MER
   definido en el documento técnico: Docente, Estudiante, Curso, Inscripción,
   Sesión de clase y Asistencia.
 - No hay backend ni base de datos real todavía — este prototipo sirve para
