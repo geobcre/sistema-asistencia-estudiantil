@@ -46,7 +46,7 @@ attendance-system/
 
 ## DESPLEGAR EN VERCEL
 
-**Opción A — sin GitHub (más rápida, con Vercel CLI):**
+**Opción A — sin usar GitHub (más rápida, con Vercel CLI):**
 
 ```bash
 npm install -g vercel
