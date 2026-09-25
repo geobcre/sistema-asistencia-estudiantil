@@ -1,0 +1,63 @@
+name: Reporte de defecto
+description: Registrar un defecto encontrado en el sistema (RF-04 del Plan de Aseguramiento de la Calidad)
+title: "[Defecto] "
+labels: ["defecto"]
+body:
+  - type: dropdown
+    id: severidad
+    attributes:
+      label: Severidad
+      options:
+        - Crítica
+        - Alta
+        - Media
+        - Baja
+    validations:
+      required: true
+
+  - type: dropdown
+    id: modulo
+    attributes:
+      label: Módulo afectado
+      options:
+        - Docentes
+        - Estudiantes
+        - Cursos
+        - Asistencia
+        - Estadísticas
+        - Reportes
+    validations:
+      required: true
+
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducirlo
+      description: Enumera los pasos exactos para reproducir el defecto.
+      placeholder: |
+        1. Entrar al módulo de...
+        2. Hacer clic en...
+        3. Observar que...
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Resultado esperado
+    validations:
+      required: true
+
+  - type: textarea
+    id: obtenido
+    attributes:
+      label: Resultado obtenido
+    validations:
+      required: true
+
+  - type: textarea
+    id: contexto
+    attributes:
+      label: Contexto adicional (capturas, logs, etc.)
+    validations:
+      required: false

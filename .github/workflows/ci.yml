@@ -1,0 +1,55 @@
+name: CI - Pruebas automatizadas
+
+# RF-05 del Plan de Aseguramiento de la Calidad: automatización de pruebas
+# integrada a un pipeline de CI/CD. Se ejecuta en cada push y pull request
+# hacia la rama main, y bloquea la fusion de cambios si alguna prueba falla.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-backend:
+    name: Pruebas del backend (Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias del backend
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Ejecutar pruebas automatizadas
+        working-directory: ./backend
+        run: npm test
+
+  build-frontend:
+    name: Verificar que el frontend compile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias del frontend
+        run: npm ci
+
+      - name: Compilar el frontend (build de produccion)
+        run: npm run build

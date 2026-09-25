@@ -5,7 +5,7 @@ Prototipo funcional en **React + Vite**. Todos los datos viven en memoria
 los datos vuelven a su estado inicial. Cubre los 6 módulos del proyecto:
 Docentes, Estudiantes, Cursos, Asistencia, Estadísticas y Reportes.
 
-## Abrir el proyecto en Cursor
+## ABRIR EL PROYECTO EN CURSOR
 
 1. Descomprime este `.zip` en una carpeta.
 2. Abre **Cursor** → `File > Open Folder…` → selecciona la carpeta `attendance-system`.
@@ -20,10 +20,12 @@ Docentes, Estudiantes, Cursos, Asistencia, Estadísticas y Reportes.
 
 Con esto ya puedes editar cualquier archivo dentro de `src/` y ver los cambios en vivo.
 
+
 ## ESTRUCTURA DEL PROYECTO
 
 ```
 attendance-system/
+
 ├── index.html
 ├── package.json
 ├── vite.config.js
