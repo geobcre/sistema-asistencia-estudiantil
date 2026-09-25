@@ -20,7 +20,7 @@ Docentes, Estudiantes, Cursos, Asistencia, Estadísticas y Reportes.
 
 Con esto ya puedes editar cualquier archivo dentro de `src/` y ver los cambios en vivo.
 
-## Estructura del proyecto
+## ESTRUCTURA DEL PROYECTO
 
 ```
 attendance-system/
