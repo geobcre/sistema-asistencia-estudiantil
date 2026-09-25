@@ -44,7 +44,7 @@ attendance-system/
         └── Reportes.jsx
 ```
 
-## Desplegar en Vercel
+## DESPLEGAR EN VERCEL
 
 **Opción A — sin GitHub (más rápida, con Vercel CLI):**
 
