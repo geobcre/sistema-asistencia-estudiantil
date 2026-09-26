@@ -8,13 +8,23 @@ export const docentesIniciales = [
   { id: 3, nombre: 'Elena', apellido: 'Vásquez', correo: 'evasquez@escuela.edu' },
 ]
 
+export const gruposIniciales = [
+  { id: 1, grado: '4.º grado', seccion: 'A', ciclo: 2026 },
+  { id: 2, grado: '4.º grado', seccion: 'B', ciclo: 2026 },
+  { id: 3, grado: '5.º grado', seccion: 'A', ciclo: 2026 },
+]
+
+export function nombreGrupo(grupo) {
+  return grupo ? `${grupo.grado} ${grupo.seccion} · ${grupo.ciclo}` : 'Sin grupo histórico'
+}
+
 export const estudiantesIniciales = [
-  { id: 1, nombre: 'Ana', apellido: 'García', carne: 'EST-001' },
-  { id: 2, nombre: 'Luis', apellido: 'Pérez', carne: 'EST-002' },
-  { id: 3, nombre: 'Sofía', apellido: 'Morales', carne: 'EST-003' },
-  { id: 4, nombre: 'Diego', apellido: 'Castillo', carne: 'EST-004' },
-  { id: 5, nombre: 'Valeria', apellido: 'Ortiz', carne: 'EST-005' },
-  { id: 6, nombre: 'Mateo', apellido: 'Ríos', carne: 'EST-006' },
+  { id: 1, nombre: 'Ana', apellido: 'García', carne: 'EST-001', idGrupo: 1 },
+  { id: 2, nombre: 'Luis', apellido: 'Pérez', carne: 'EST-002', idGrupo: 1 },
+  { id: 3, nombre: 'Sofía', apellido: 'Morales', carne: 'EST-003', idGrupo: 2 },
+  { id: 4, nombre: 'Diego', apellido: 'Castillo', carne: 'EST-004', idGrupo: 2 },
+  { id: 5, nombre: 'Valeria', apellido: 'Ortiz', carne: 'EST-005', idGrupo: 3 },
+  { id: 6, nombre: 'Mateo', apellido: 'Ríos', carne: 'EST-006', idGrupo: 3 },
 ]
 
 export const cursosIniciales = [
@@ -23,18 +33,14 @@ export const cursosIniciales = [
   { id: 3, nombre: 'Ciencias Naturales', codigo: 'CNA-101', horario: 'Vie 9:00', idDocente: 3 },
 ]
 
-// Inscripción: relación muchos-a-muchos entre estudiantes y cursos
-export const inscripcionesIniciales = [
-  { id: 1, idEstudiante: 1, idCurso: 1 },
-  { id: 2, idEstudiante: 2, idCurso: 1 },
-  { id: 3, idEstudiante: 3, idCurso: 1 },
-  { id: 4, idEstudiante: 4, idCurso: 2 },
-  { id: 5, idEstudiante: 5, idCurso: 2 },
-  { id: 6, idEstudiante: 1, idCurso: 2 },
-  { id: 7, idEstudiante: 6, idCurso: 3 },
-  { id: 8, idEstudiante: 2, idCurso: 3 },
-  { id: 9, idEstudiante: 3, idCurso: 3 },
-]
+// Todos los grupos comparten estas asignaturas en los datos de demostración.
+export const inscripcionesIniciales = estudiantesIniciales.flatMap((estudiante) =>
+  cursosIniciales.map((curso) => ({
+    id: (estudiante.id - 1) * cursosIniciales.length + curso.id,
+    idEstudiante: estudiante.id,
+    idCurso: curso.id,
+  }))
+)
 
 // Sesión de clase: una fecha/hora concreta en la que se puede tomar asistencia
 export const sesionesIniciales = [

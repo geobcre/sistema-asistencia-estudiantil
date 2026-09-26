@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
+import { nombreGrupo } from '../data/mockData.js'
 
 export default function Cursos({ store }) {
-  const { cursos, setCursos, docentes, estudiantes, inscripciones, setInscripciones } = store
+  const { cursos, setCursos, grupos, docentes, estudiantes, inscripciones, setInscripciones } = store
   const [form, setForm] = useState({ nombre: '', codigo: '', horario: '', idDocente: '' })
   const [editId, setEditId] = useState(null)
   const [cursoAbierto, setCursoAbierto] = useState(null)
@@ -77,15 +78,15 @@ export default function Cursos({ store }) {
     <section>
       <header className="section-header">
         <p className="eyebrow">Módulo 03</p>
-        <h1>Cursos</h1>
-        <p className="section-sub">Cursos, docente asignado y estudiantes inscritos.</p>
+        <h1>Asignaturas</h1>
+        <p className="section-sub">Materias, docente asignado y estudiantes inscritos por grupo.</p>
       </header>
 
       <div className="panel-grid">
         <form className="card form-card" onSubmit={guardar}>
-          <h2>{editId ? 'Editar curso' : 'Nuevo curso'}</h2>
+          <h2>{editId ? 'Editar asignatura' : 'Nueva asignatura'}</h2>
           <label>
-            Nombre del curso
+            Nombre de la asignatura
             <input
               value={form.nombre}
               onChange={(e) => setForm({ ...form, nombre: e.target.value })}
@@ -123,7 +124,7 @@ export default function Cursos({ store }) {
           </label>
           <div className="form-actions">
             <button type="submit" className="btn btn-primary">
-              {editId ? 'Guardar cambios' : 'Agregar curso'}
+              {editId ? 'Guardar cambios' : 'Agregar asignatura'}
             </button>
             {editId && (
               <button type="button" className="btn btn-ghost" onClick={resetForm}>
@@ -137,7 +138,7 @@ export default function Cursos({ store }) {
           <table>
             <thead>
               <tr>
-                <th>Curso</th>
+                <th>Asignatura</th>
                 <th>Docente</th>
                 <th>Inscritos</th>
                 <th></th>
@@ -145,7 +146,7 @@ export default function Cursos({ store }) {
             </thead>
             <tbody>
               {cursos.map((c) => (
-                <>
+                <Fragment key={c.id}>
                   <tr key={c.id}>
                     <td>
                       <button className="link-btn as-title" onClick={() => setCursoAbierto(cursoAbierto === c.id ? null : c.id)}>
@@ -168,6 +169,7 @@ export default function Cursos({ store }) {
                             {estudiantesDeCurso(c.id).map((s) => (
                               <li key={s.id} className="chip">
                                 {s.nombre} {s.apellido}
+                                <span className="muted"> · {nombreGrupo(grupos.find((grupo) => grupo.id === s.idGrupo))}</span>
                                 <button className="chip-remove" onClick={() => desinscribir(c.id, s.id)}>×</button>
                               </li>
                             ))}
@@ -182,7 +184,9 @@ export default function Cursos({ store }) {
                             >
                               <option value="">Seleccionar estudiante…</option>
                               {estudiantes.map((s) => (
-                                <option key={s.id} value={s.id}>{s.nombre} {s.apellido}</option>
+                                <option key={s.id} value={s.id}>
+                                  {s.nombre} {s.apellido} · {nombreGrupo(grupos.find((grupo) => grupo.id === s.idGrupo))}
+                                </option>
                               ))}
                             </select>
                             <button className="btn btn-secondary" onClick={() => inscribir(c.id)}>Inscribir</button>
@@ -191,10 +195,10 @@ export default function Cursos({ store }) {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
               {cursos.length === 0 && (
-                <tr><td colSpan={4} className="empty-row">No hay cursos registrados todavía.</td></tr>
+                <tr><td colSpan={4} className="empty-row">No hay asignaturas registradas todavía.</td></tr>
               )}
             </tbody>
           </table>

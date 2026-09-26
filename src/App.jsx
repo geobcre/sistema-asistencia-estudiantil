@@ -3,6 +3,7 @@ import {
   docentesIniciales,
   estudiantesIniciales,
   cursosIniciales,
+  gruposIniciales,
   inscripcionesIniciales,
   sesionesIniciales,
   asistenciasIniciales,
@@ -17,7 +18,7 @@ import Reportes from './components/Reportes.jsx'
 const SECCIONES = [
   { id: 'docentes', label: 'Docentes', numero: '01' },
   { id: 'estudiantes', label: 'Estudiantes', numero: '02' },
-  { id: 'cursos', label: 'Cursos', numero: '03' },
+  { id: 'cursos', label: 'Asignaturas', numero: '03' },
   { id: 'asistencia', label: 'Asistencia', numero: '04' },
   { id: 'estadisticas', label: 'Estadísticas', numero: '05' },
   { id: 'reportes', label: 'Reportes', numero: '06' },
@@ -31,6 +32,7 @@ export default function App() {
   const [docentes, setDocentes] = useState(docentesIniciales)
   const [estudiantes, setEstudiantes] = useState(estudiantesIniciales)
   const [cursos, setCursos] = useState(cursosIniciales)
+  const [grupos] = useState(gruposIniciales)
   const [inscripciones, setInscripciones] = useState(inscripcionesIniciales)
   const [sesiones, setSesiones] = useState(sesionesIniciales)
   const [asistencias, setAsistencias] = useState(asistenciasIniciales)
@@ -39,6 +41,7 @@ export default function App() {
     docentes, setDocentes,
     estudiantes, setEstudiantes,
     cursos, setCursos,
+    grupos,
     inscripciones, setInscripciones,
     sesiones, setSesiones,
     asistencias, setAsistencias,
