@@ -1,93 +1,252 @@
-# Sistema de Control de Asistencia Estudiantil (prototipo)
+# Sistema de Control de Asistencia Estudiantil
 
-Prototipo funcional en **React + Vite**. Todos los datos viven en memoria
-(`src/data/mockData.js`) — no hay base de datos real. Al recargar la página,
-los datos vuelven a su estado inicial. Cubre los 6 módulos del proyecto:
-Docentes, Estudiantes, Cursos, Asistencia, Estadísticas y Reportes.
+Sistema web para la gestión y control de asistencia estudiantil.
 
-## ABRIR EL PROYECTO EN CURSOR
+El proyecto utiliza **React + Vite** para el frontend y **Node.js + Express + SQLite** para el backend. Actualmente cuenta con autenticación de usuarios mediante JWT y almacenamiento persistente de información.
 
-1. Descomprime este `.zip` en una carpeta.
-2. Abre **Cursor** → `File > Open Folder…` → selecciona la carpeta `attendance-system`.
-3. Abre una terminal dentro de Cursor (`Ctrl/Cmd + ñ` o `Terminal > New Terminal`) y ejecuta:
+## Tecnologías utilizadas
 
-   ```bash
-   npm install
-   npm run dev
-   ```
+### Frontend
 
-4. Abre en el navegador la URL que muestra la terminal (normalmente `http://localhost:5173`).
+- React
+- Vite
+- JavaScript
+- CSS
 
-Con esto ya puedes editar cualquier archivo dentro de `src/` y ver los cambios en vivo.
+### Backend
 
+- Node.js
+- Express
+- SQLite
+- better-sqlite3
+- bcryptjs
+- JSON Web Token (JWT)
 
-## ESTRUCTURA DEL PROYECTO
+## Requisitos
 
-```
-attendance-system/
+Antes de ejecutar el proyecto se debe tener instalado:
 
-├── index.html
-├── package.json
-├── vite.config.js
-└── src/
-    ├── main.jsx
-    ├── App.jsx              ← estado global y navegación entre módulos
-    ├── styles.css
-    ├── data/
-    │   └── mockData.js      ← datos simulados (basados en el MER)
-    └── components/
-        ├── Docentes.jsx
-        ├── Estudiantes.jsx
-        ├── Cursos.jsx
-        ├── Asistencia.jsx
-        ├── Estadisticas.jsx
-        └── Reportes.jsx
-```
+- Node.js
+- npm
+- Git
 
-## DESPLEGAR EN VERCEL
+## Instalación
 
-**Opción A — sin usar GitHub (más rápida, con Vercel CLI):**
+Clonar el repositorio:
 
 ```bash
-npm install -g vercel
-cd attendance-system
-vercel
+git clone https://github.com/geobcre/sistema-asistencia-estudiantil.git
 ```
 
-Sigue las instrucciones en pantalla (te pedirá iniciar sesión con tu cuenta de
-Vercel la primera vez). Al final te dará una URL pública ya desplegada.
-Para volver a desplegar tras hacer cambios: `vercel --prod`.
+Entrar al proyecto:
 
-**Opción B — Usando GitHub (recomendada para el proyecto académico):**
+```bash
+cd sistema-asistencia-estudiantil
+```
 
-1. Crea un repositorio nuevo en GitHub y sube esta carpeta:
+## Ejecutar el backend
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Prototipo inicial - sistema de asistencia"
-   git branch -M main
-   git remote add origin <URL-de-tu-repo>
-   git push -u origin main
-   ```
+Abrir una terminal y entrar a:
 
-2. Entra a [vercel.com](https://vercel.com), inicia sesión, y haz clic en
-   **"Add New… > Project"**.
-3. Selecciona el repositorio que acabas de subir. Vercel detecta automáticamente
-   que es un proyecto Vite y configura todo solo (no necesitas tocar nada).
-4. Clic en **Deploy**. En un par de minutos tendrás una URL pública para
-   compartir o entregar como avance del proyecto.
+```bash
+cd backend
+```
 
-Cada vez que hagas `git push` a `main`, Vercel vuelve a desplegar automáticamente.
+Instalar las dependencias:
 
-## NOTAS PARA EL INFORME TÉCNICO
+```bash
+npm install
+```
 
-- El almacenamiento es **En memoria** (estado de React), simulando el MER
-  definido en el documento técnico: Docente, Estudiante, Curso, Inscripción,
-  Sesión de clase y Asistencia.
-- No hay backend ni base de datos real todavía — este prototipo sirve para
-  validar el flujo funcional (UI y lógica) antes de construir la API REST y
-  conectar una base de datos persistente.
-- El módulo de Reportes exporta a CSV desde el navegador (sin backend).
+Iniciar el servidor:
 
+```bash
+npm run dev
+```
 
+El backend se ejecuta en:
+
+```text
+http://localhost:4000
+```
+
+La base de datos SQLite se inicializa automáticamente al ejecutar el backend.
+
+## Ejecutar el frontend
+
+Abrir una segunda terminal desde la raíz del proyecto.
+
+Instalar las dependencias:
+
+```bash
+npm install
+```
+
+Ejecutar:
+
+```bash
+npm run dev
+```
+
+Vite mostrará la dirección del frontend, normalmente:
+
+```text
+http://localhost:5173
+```
+
+## Acceso al sistema
+
+Para desarrollo y pruebas se crea automáticamente un usuario administrador inicial.
+
+### Credenciales de prueba
+
+```text
+Correo: admin@escuela.edu
+Contraseña: Admin123*
+Rol: Administrador
+```
+
+Estas credenciales son únicamente para desarrollo y demostración del proyecto.
+
+## Funcionalidades implementadas
+
+Actualmente el sistema cuenta con:
+
+- Inicio de sesión.
+- Autenticación mediante JWT.
+- Contraseñas almacenadas mediante hash.
+- Protección de rutas del backend.
+- Cierre de sesión.
+- Gestión de docentes.
+- Registro, edición y eliminación de docentes.
+- Persistencia de docentes en SQLite.
+- Gestión de estudiantes.
+- Registro, edición y eliminación de estudiantes.
+- Persistencia de estudiantes en SQLite.
+- Confirmación antes de eliminar registros.
+- Manejo de mensajes de éxito y error.
+
+## Módulos del sistema
+
+El proyecto contempla los siguientes módulos:
+
+1. Docentes
+2. Estudiantes
+3. Asignaturas / Cursos
+4. Asistencia
+5. Estadísticas
+6. Reportes
+
+Los módulos se están migrando progresivamente desde los datos simulados originales hacia el backend y la base de datos SQLite.
+
+## Estructura general
+
+```text
+sistema-asistencia-estudiantil/
+│
+├── backend/
+│   ├── src/
+│   │   ├── middleware/
+│   │   │   └── auth.js
+│   │   ├── routes/
+│   │   │   ├── auth.js
+│   │   │   ├── docentes.js
+│   │   │   ├── estudiantes.js
+│   │   │   ├── cursos.js
+│   │   │   ├── sesiones.js
+│   │   │   ├── estadisticas.js
+│   │   │   └── reportes.js
+│   │   ├── app.js
+│   │   ├── db.js
+│   │   └── server.js
+│   │
+│   └── package.json
+│
+├── src/
+│   ├── components/
+│   │   ├── Login.jsx
+│   │   ├── Docentes.jsx
+│   │   ├── Estudiantes.jsx
+│   │   ├── Cursos.jsx
+│   │   ├── Asistencia.jsx
+│   │   ├── Estadisticas.jsx
+│   │   └── Reportes.jsx
+│   │
+│   ├── data/
+│   │   └── mockData.js
+│   │
+│   ├── api.js
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── styles.css
+│
+├── .gitignore
+├── index.html
+├── package.json
+├── README.md
+└── vite.config.js
+```
+
+## Base de datos
+
+El backend utiliza SQLite.
+
+Entre las entidades principales se encuentran:
+
+- Usuarios
+- Docentes
+- Estudiantes
+- Cursos
+- Inscripciones
+- Sesiones
+- Asistencias
+
+Los módulos se encuentran relacionados de acuerdo con el modelo de datos del sistema.
+
+## Seguridad
+
+El sistema implementa autenticación mediante JWT.
+
+Las solicitudes realizadas desde el frontend hacia las rutas protegidas incluyen el token mediante:
+
+```text
+Authorization: Bearer <token>
+```
+
+Las contraseñas de los usuarios no se almacenan directamente, sino mediante hash.
+
+## Trabajo colaborativo
+
+Antes de comenzar a realizar cambios se recomienda actualizar `main`:
+
+```bash
+git checkout main
+git pull origin main
+```
+
+Después de realizar una funcionalidad:
+
+```bash
+git add .
+git commit -m "descripcion del cambio"
+git push origin main
+```
+
+Los mensajes de commit deben describir claramente la funcionalidad realizada.
+
+Ejemplos:
+
+```text
+feat: agregar login y autenticacion JWT
+feat: conectar estudiantes con SQLite
+feat: conectar cursos con docentes
+fix: corregir registro de asistencia
+```
+
+## Estado actual
+
+Los módulos de **Docentes** y **Estudiantes** ya utilizan información persistente almacenada en SQLite.
+
+Los demás módulos continuarán siendo migrados progresivamente al backend.
+
+El archivo `mockData.js` todavía se conserva temporalmente debido a que algunos módulos del frontend siguen dependiendo de datos simulados. No debe eliminarse hasta completar la migración.
