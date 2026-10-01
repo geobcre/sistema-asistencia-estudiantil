@@ -1,4 +1,5 @@
 import { useState } from 'react'
+
 import {
   docentesIniciales,
   estudiantesIniciales,
@@ -8,6 +9,8 @@ import {
   sesionesIniciales,
   asistenciasIniciales,
 } from './data/mockData.js'
+
+import Login from './components/Login.jsx'
 import Docentes from './components/Docentes.jsx'
 import Estudiantes from './components/Estudiantes.jsx'
 import Cursos from './components/Cursos.jsx'
@@ -24,11 +27,22 @@ const SECCIONES = [
   { id: 'reportes', label: 'Reportes', numero: '06' },
 ]
 
+function obtenerUsuarioGuardado() {
+  try {
+    const usuario = localStorage.getItem('usuario')
+
+    return usuario ? JSON.parse(usuario) : null
+  } catch {
+    return null
+  }
+}
+
 export default function App() {
+  const [usuario, setUsuario] = useState(obtenerUsuarioGuardado)
   const [vista, setVista] = useState('asistencia')
 
-  // Todo el "backend" vive aquí, en memoria. No hay base de datos real:
-  // al recargar la página, los datos vuelven a su estado inicial.
+  // Estos datos temporales serán reemplazados progresivamente
+  // por los datos reales provenientes del backend.
   const [docentes, setDocentes] = useState(docentesIniciales)
   const [estudiantes, setEstudiantes] = useState(estudiantesIniciales)
   const [cursos, setCursos] = useState(cursosIniciales)
@@ -38,13 +52,37 @@ export default function App() {
   const [asistencias, setAsistencias] = useState(asistenciasIniciales)
 
   const store = {
-    docentes, setDocentes,
-    estudiantes, setEstudiantes,
-    cursos, setCursos,
+    docentes,
+    setDocentes,
+
+    estudiantes,
+    setEstudiantes,
+
+    cursos,
+    setCursos,
+
     grupos,
-    inscripciones, setInscripciones,
-    sesiones, setSesiones,
-    asistencias, setAsistencias,
+
+    inscripciones,
+    setInscripciones,
+
+    sesiones,
+    setSesiones,
+
+    asistencias,
+    setAsistencias,
+  }
+
+  const cerrarSesion = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('usuario')
+
+    setUsuario(null)
+    setVista('asistencia')
+  }
+
+  if (!usuario) {
+    return <Login onLogin={setUsuario} />
   }
 
   return (
@@ -52,35 +90,90 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">Ⓐ</span>
+
           <div>
-            <p className="brand-title">Control de Asistencia</p>
-            <p className="brand-sub">Prototipo académico</p>
+            <p className="brand-title">
+              Control de Asistencia
+            </p>
+
+            <p className="brand-sub">
+              Sistema de gestión estudiantil
+            </p>
           </div>
         </div>
+
+        <div className="sidebar-user">
+          <div className="sidebar-avatar">
+            {usuario.nombre?.charAt(0).toUpperCase()}
+          </div>
+
+          <div>
+            <p className="sidebar-user-name">
+              {usuario.nombre}
+            </p>
+
+            <p className="sidebar-user-role">
+              {usuario.rol}
+            </p>
+          </div>
+        </div>
+
         <nav className="nav">
           {SECCIONES.map((s) => (
             <button
               key={s.id}
-              className={`nav-item ${vista === s.id ? 'is-active' : ''}`}
+              className={`nav-item ${
+                vista === s.id ? 'is-active' : ''
+              }`}
               onClick={() => setVista(s.id)}
             >
-              <span className="nav-num">{s.numero}</span>
+              <span className="nav-num">
+                {s.numero}
+              </span>
+
               {s.label}
             </button>
           ))}
         </nav>
-        <p className="sidebar-footnote">
-          Sin base de datos real — los datos viven en memoria durante la sesión.
-        </p>
+
+        <div className="sidebar-bottom">
+          <button
+            className="logout-button"
+            onClick={cerrarSesion}
+          >
+            Cerrar sesión
+          </button>
+
+          <p className="sidebar-footnote">
+            Sistema conectado al servidor de asistencia.
+          </p>
+        </div>
       </aside>
 
       <main className="content">
-        {vista === 'docentes' && <Docentes store={store} />}
-        {vista === 'estudiantes' && <Estudiantes store={store} />}
-        {vista === 'cursos' && <Cursos store={store} />}
-        {vista === 'asistencia' && <Asistencia store={store} />}
-        {vista === 'estadisticas' && <Estadisticas store={store} />}
-        {vista === 'reportes' && <Reportes store={store} />}
+        {vista === 'docentes' && (
+          <Docentes store={store} />
+        )}
+
+        {vista === 'estudiantes' && (
+          <Estudiantes store={store} />
+        )}
+
+        {vista === 'cursos' && (
+          <Cursos store={store} />
+        )}
+
+        {vista === 'asistencia' && (
+          <Asistencia store={store} />
+        )}
+
+        {vista === 'estadisticas' && (
+          <Estadisticas store={store} />
+        )}
+
+        {vista === 'reportes' && (
+          <Reportes store={store} />
+        )}
       </main>
     </div>
   )

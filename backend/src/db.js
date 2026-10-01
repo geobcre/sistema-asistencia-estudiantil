@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import bcrypt from 'bcryptjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -21,6 +22,19 @@ db.exec(`
     nombre TEXT NOT NULL,
     apellido TEXT NOT NULL,
     correo TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    correo TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'docente'
+      CHECK(rol IN ('administrador', 'docente')),
+    activo INTEGER NOT NULL DEFAULT 1
+      CHECK(activo IN (0, 1)),
+    id_docente INTEGER UNIQUE REFERENCES docentes(id) ON DELETE SET NULL,
+    creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS estudiantes (
@@ -120,6 +134,36 @@ if (totalDocentes === 0) {
     insAsistencia.run(s4, eLuis, 'presente')
     insAsistencia.run(s4, eSofia, 'ausente')
   })
+// --- Usuario administrador inicial ---
+
   insertar()
   console.log('Base de datos inicializada con datos de ejemplo.')
+}
+
+// --- Usuario administrador inicial ---
+const totalUsuarios = db.prepare(
+  'SELECT COUNT(*) AS n FROM usuarios'
+).get().n
+
+if (totalUsuarios === 0) {
+  const passwordHash = bcrypt.hashSync('Admin123*', 12)
+
+  db.prepare(`
+    INSERT INTO usuarios (
+      nombre,
+      correo,
+      password,
+      rol,
+      activo
+    )
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    'Administrador',
+    'admin@escuela.edu',
+    passwordHash,
+    'administrador',
+    1
+  )
+
+  console.log('Usuario administrador inicial creado.')
 }

@@ -611,3 +611,338 @@ tr:last-child td { border-bottom: none; }
   .attendance-print-signatures { display: grid !important; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 54px; }
   .attendance-print-signatures div { border-top: 1px solid #202a36; padding-top: 7px; text-align: center; font-size: 9pt; }
 }
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(63, 99, 85, 0.12),
+      transparent 35%
+    ),
+    var(--paper);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 430px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 38px;
+  box-shadow:
+    0 18px 45px rgba(32, 42, 54, 0.08),
+    0 2px 8px rgba(32, 42, 54, 0.04);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 24px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.login-logo {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.login-brand h1 {
+  margin: 0 0 3px;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.login-brand p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.login-heading {
+  margin-bottom: 25px;
+}
+
+.login-heading h2 {
+  margin: 0 0 7px;
+  font-family: var(--font-display);
+  font-size: 29px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.login-heading p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.login-field label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.login-field input {
+  width: 100%;
+  height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.login-field input:hover {
+  border-color: rgba(32, 42, 54, 0.25);
+}
+
+.login-field input:focus {
+  border-color: var(--moss);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(63, 99, 85, 0.1);
+}
+
+.login-field input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.password-wrapper {
+  position: relative;
+}
+
+.password-wrapper input {
+  padding-right: 80px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--moss);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.password-toggle:hover {
+  text-decoration: underline;
+}
+
+.password-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.login-error {
+  padding: 11px 13px;
+  border: 1px solid rgba(181, 83, 60, 0.25);
+  border-radius: 7px;
+  background: var(--clay-soft);
+  color: var(--clay);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.login-button {
+  width: 100%;
+  height: 44px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.login-button:hover:not(:disabled) {
+  background: #33404f;
+}
+
+.login-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.login-footer {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.login-footer p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   USUARIO DEL SIDEBAR
+   ========================================================= */
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 10px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-avatar {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.sidebar-user-name {
+  margin: 0 0 2px;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.sidebar-user-role {
+  margin: 0;
+  color: #9da39b;
+  font-size: 10.5px;
+  text-transform: capitalize;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+}
+
+.logout-button {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: transparent;
+  color: #cfd0c8;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.logout-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+
+/* =========================================================
+   LOGIN RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 520px) {
+  .login-page {
+    padding: 18px;
+  }
+
+  .login-card {
+    padding: 28px 22px;
+  }
+
+  .login-heading h2 {
+    font-size: 25px;
+  }
+}
+
+/* =========================================================
+   MENSAJES DE MÓDULOS
+   ========================================================= */
+
+.module-message {
+  margin-bottom: 18px;
+  padding: 11px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.module-message-error {
+  background: var(--clay-soft);
+  color: var(--clay);
+  border: 1px solid rgba(181, 83, 60, 0.22);
+}
+
+.module-message-success {
+  background: var(--moss-soft);
+  color: var(--moss);
+  border: 1px solid rgba(63, 99, 85, 0.18);
+}

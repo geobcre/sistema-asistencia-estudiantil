@@ -1,100 +1,249 @@
-import { useState } from 'react'
-import { nombreGrupo } from '../data/mockData.js'
+import { useEffect, useState } from 'react'
+import { api } from '../api.js'
+
+const FORM_INICIAL = {
+  nombre: '',
+  apellido: '',
+  carne: '',
+}
 
 export default function Estudiantes({ store }) {
-  const { grupos, estudiantes, setEstudiantes } = store
-  const [form, setForm] = useState({ nombre: '', apellido: '', carne: '', idGrupo: grupos[0]?.id ?? '' })
+  const { estudiantes, setEstudiantes } = store
+
+  const [form, setForm] = useState(FORM_INICIAL)
   const [editId, setEditId] = useState(null)
 
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const [mensaje, setMensaje] = useState('')
+
+  useEffect(() => {
+    cargarEstudiantes()
+  }, [])
+
+  async function cargarEstudiantes() {
+    try {
+      setCargando(true)
+      setError('')
+
+      const datos = await api.getEstudiantes()
+
+      setEstudiantes(datos)
+    } catch (error) {
+      console.error(error)
+      setError(error.message)
+    } finally {
+      setCargando(false)
+    }
+  }
+
   function resetForm() {
-    setForm({ nombre: '', apellido: '', carne: '', idGrupo: grupos[0]?.id ?? '' })
+    setForm(FORM_INICIAL)
     setEditId(null)
   }
 
-  function guardar(e) {
-    e.preventDefault()
-    if (!form.nombre || !form.apellido) return
-    const payload = { ...form, idGrupo: Number(form.idGrupo) }
+  function cambiarCampo(e) {
+    const { name, value } = e.target
 
-    if (editId) {
-      setEstudiantes(estudiantes.map((s) => (s.id === editId ? { ...s, ...payload } : s)))
-    } else {
-      const nuevoId = Math.max(0, ...estudiantes.map((s) => s.id)) + 1
-      setEstudiantes([...estudiantes, { id: nuevoId, ...payload }])
+    setForm((actual) => ({
+      ...actual,
+      [name]: value,
+    }))
+  }
+
+  async function guardar(e) {
+    e.preventDefault()
+
+    setError('')
+    setMensaje('')
+
+    const datos = {
+      nombre: form.nombre.trim(),
+      apellido: form.apellido.trim(),
+      carne: form.carne.trim(),
     }
-    resetForm()
+
+    if (!datos.nombre || !datos.apellido) {
+      setError('El nombre y el apellido son obligatorios.')
+      return
+    }
+
+    try {
+      setGuardando(true)
+
+      if (editId !== null) {
+        const estudianteActualizado =
+          await api.editarEstudiante(editId, datos)
+
+        setEstudiantes((actuales) =>
+          actuales.map((estudiante) =>
+            estudiante.id === editId
+              ? estudianteActualizado
+              : estudiante
+          )
+        )
+
+        setMensaje('Estudiante actualizado correctamente.')
+      } else {
+        const nuevoEstudiante =
+          await api.crearEstudiante(datos)
+
+        setEstudiantes((actuales) => [
+          ...actuales,
+          nuevoEstudiante,
+        ])
+
+        setMensaje('Estudiante registrado correctamente.')
+      }
+
+      resetForm()
+    } catch (error) {
+      console.error(error)
+      setError(error.message)
+    } finally {
+      setGuardando(false)
+    }
   }
 
   function editar(estudiante) {
+    setError('')
+    setMensaje('')
+
     setEditId(estudiante.id)
+
     setForm({
-      nombre: estudiante.nombre,
-      apellido: estudiante.apellido,
-      carne: estudiante.carne,
-      idGrupo: estudiante.idGrupo ?? grupos[0]?.id ?? '',
+      nombre: estudiante.nombre || '',
+      apellido: estudiante.apellido || '',
+      carne: estudiante.carne || '',
     })
   }
 
-  function eliminar(id) {
-    setEstudiantes(estudiantes.filter((s) => s.id !== id))
-    if (editId === id) resetForm()
+  async function eliminar(estudiante) {
+    const confirmado = window.confirm(
+      `¿Está seguro de eliminar al estudiante ${estudiante.nombre} ${estudiante.apellido}?`
+    )
+
+    if (!confirmado) {
+      return
+    }
+
+    try {
+      setError('')
+      setMensaje('')
+
+      await api.eliminarEstudiante(estudiante.id)
+
+      setEstudiantes((actuales) =>
+        actuales.filter(
+          (actual) => actual.id !== estudiante.id
+        )
+      )
+
+      if (editId === estudiante.id) {
+        resetForm()
+      }
+
+      setMensaje('Estudiante eliminado correctamente.')
+    } catch (error) {
+      console.error(error)
+      setError(error.message)
+    }
   }
 
   return (
     <section>
       <header className="section-header">
         <p className="eyebrow">Módulo 02</p>
+
         <h1>Estudiantes</h1>
-        <p className="section-sub">Alta, edición y baja de estudiantes.</p>
+
+        <p className="section-sub">
+          Registro y administración de estudiantes.
+        </p>
       </header>
 
+      {error && (
+        <div className="module-message module-message-error">
+          {error}
+        </div>
+      )}
+
+      {mensaje && (
+        <div className="module-message module-message-success">
+          {mensaje}
+        </div>
+      )}
+
       <div className="panel-grid">
-        <form className="card form-card" onSubmit={guardar}>
-          <h2>{editId ? 'Editar estudiante' : 'Nuevo estudiante'}</h2>
+        <form
+          className="card form-card"
+          onSubmit={guardar}
+        >
+          <h2>
+            {editId !== null
+              ? 'Editar estudiante'
+              : 'Nuevo estudiante'}
+          </h2>
+
           <label>
             Nombre
+
             <input
+              name="nombre"
               value={form.nombre}
-              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+              onChange={cambiarCampo}
               placeholder="Ana"
+              disabled={guardando}
               required
             />
           </label>
+
           <label>
             Apellido
+
             <input
+              name="apellido"
               value={form.apellido}
-              onChange={(e) => setForm({ ...form, apellido: e.target.value })}
+              onChange={cambiarCampo}
               placeholder="García"
+              disabled={guardando}
               required
             />
           </label>
+
           <label>
             Carné
+
             <input
+              name="carne"
               value={form.carne}
-              onChange={(e) => setForm({ ...form, carne: e.target.value })}
+              onChange={cambiarCampo}
               placeholder="EST-007"
+              disabled={guardando}
             />
           </label>
-          <label>
-            Grado y sección
-            <select
-              value={form.idGrupo}
-              onChange={(e) => setForm({ ...form, idGrupo: e.target.value })}
-              required
-            >
-              {grupos.map((grupo) => (
-                <option key={grupo.id} value={grupo.id}>{nombreGrupo(grupo)}</option>
-              ))}
-            </select>
-          </label>
+
           <div className="form-actions">
-            <button type="submit" className="btn btn-primary">
-              {editId ? 'Guardar cambios' : 'Agregar estudiante'}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={guardando}
+            >
+              {guardando
+                ? 'Guardando...'
+                : editId !== null
+                  ? 'Guardar cambios'
+                  : 'Agregar estudiante'}
             </button>
-            {editId && (
-              <button type="button" className="btn btn-ghost" onClick={resetForm}>
+
+            {editId !== null && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={resetForm}
+                disabled={guardando}
+              >
                 Cancelar
               </button>
             )}
@@ -102,32 +251,69 @@ export default function Estudiantes({ store }) {
         </form>
 
         <div className="card table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Carné</th>
-                <th>Grado / sección</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {estudiantes.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.nombre} {s.apellido}</td>
-                  <td className="muted">{s.carne || '—'}</td>
-                  <td className="muted">{nombreGrupo(grupos.find((grupo) => grupo.id === s.idGrupo))}</td>
-                  <td className="row-actions">
-                    <button className="link-btn" onClick={() => editar(s)}>Editar</button>
-                    <button className="link-btn link-danger" onClick={() => eliminar(s.id)}>Eliminar</button>
-                  </td>
+          {cargando ? (
+            <p className="empty-row">
+              Cargando estudiantes...
+            </p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Carné</th>
+                  <th></th>
                 </tr>
-              ))}
-              {estudiantes.length === 0 && (
-                <tr><td colSpan={4} className="empty-row">No hay estudiantes registrados todavía.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {estudiantes.map((estudiante) => (
+                  <tr key={estudiante.id}>
+                    <td>
+                      {estudiante.nombre}{' '}
+                      {estudiante.apellido}
+                    </td>
+
+                    <td className="muted">
+                      {estudiante.carne || '—'}
+                    </td>
+
+                    <td className="row-actions">
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() =>
+                          editar(estudiante)
+                        }
+                      >
+                        Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        className="link-btn link-danger"
+                        onClick={() =>
+                          eliminar(estudiante)
+                        }
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {estudiantes.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="empty-row"
+                    >
+                      No hay estudiantes registrados todavía.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </section>
