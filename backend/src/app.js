@@ -14,6 +14,8 @@ import ciclosRouter from './routes/ciclos.js'
 import gruposRouter from './routes/grupos.js'
 import asignaturasRouter from './routes/asignaturas.js'
 import asignacionesAcademicasRouter from './routes/asignaciones-academicas.js'
+import matriculasRouter from './routes/matriculas.js'
+import inscripcionesRouter from './routes/inscripciones.js'
 
 import { verificarToken } from './middleware/auth.js'
 
@@ -56,6 +58,8 @@ app.use('/api/ciclos', ciclosRouter)
 app.use('/api/grupos', gruposRouter)
 app.use('/api/asignaturas', asignaturasRouter)
 app.use('/api/asignaciones-academicas', asignacionesAcademicasRouter)
+app.use('/api/matriculas', matriculasRouter)
+app.use('/api/inscripciones', inscripcionesRouter)
 app.use('/api/cursos', cursosRouter)
 app.use('/api/sesiones', sesionesRouter)
 app.use('/api/estadisticas', estadisticasRouter)
