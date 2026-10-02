@@ -1,75 +1,75 @@
-// Pruebas automatizadas del módulo de Estudiantes (RF-05 del PAQ).
-// QA.md lo listaba como cobertura pendiente (solo pruebas manuales hasta ahora).
-import { describe, it, expect } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { app } from '../app.js'
+import { conToken, tokenAdministrador, tokenDocente } from './auth-helpers.js'
 
-describe('Módulo de Estudiantes', () => {
-  it('CP-10: crea un estudiante y lo devuelve con los datos enviados', async () => {
-    const res = await request(app)
-      .post('/api/estudiantes')
-      .send({ nombre: 'Renata', apellido: 'Flores', carne: 'EST-099' })
+describe('Estudiantes', () => {
+  let admin
+  let docente
 
-    expect(res.status).toBe(201)
-    expect(res.body).toMatchObject({ nombre: 'Renata', apellido: 'Flores', carne: 'EST-099' })
-    expect(res.body.id).toBeDefined()
+  beforeAll(async () => {
+    admin = await tokenAdministrador()
+    docente = await tokenDocente()
   })
 
-  it('rechaza crear un estudiante sin nombre o apellido', async () => {
-    const res = await request(app).post('/api/estudiantes').send({ carne: 'EST-100' })
+  it('lista estudiantes para un usuario autenticado', async () => {
+    const res = await conToken(request(app).get('/api/estudiantes'), docente)
+    expect(res.status).toBe(200)
+    expect(res.body[0]).toHaveProperty('id_estudiante')
+  })
 
+  it('crea un estudiante activo con carné obligatorio', async () => {
+    const res = await conToken(request(app).post('/api/estudiantes'), admin)
+      .send({ carne: 'EST-100', nombre: 'Renata', apellido: 'Flores' })
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({ carne: 'EST-100', estado: 'Activo' })
+  })
+
+  it('rechaza un estudiante sin carné', async () => {
+    const res = await conToken(request(app).post('/api/estudiantes'), admin)
+      .send({ nombre: 'Sin', apellido: 'Carné' })
     expect(res.status).toBe(400)
   })
 
-  it('actualiza los datos de un estudiante existente', async () => {
-    const creado = await request(app).post('/api/estudiantes').send({ nombre: 'Temporal', apellido: 'Uno' })
-
-    const actualizado = await request(app)
-      .put(`/api/estudiantes/${creado.body.id}`)
-      .send({ nombre: 'Temporal', apellido: 'Dos', carne: 'EST-101' })
-
-    expect(actualizado.status).toBe(200)
-    expect(actualizado.body).toMatchObject({ apellido: 'Dos', carne: 'EST-101' })
+  it('controla el carné duplicado', async () => {
+    const res = await conToken(request(app).post('/api/estudiantes'), admin)
+      .send({ carne: 'EST-001', nombre: 'Duplicado', apellido: 'Prueba' })
+    expect(res.status).toBe(409)
   })
 
-  it('elimina un estudiante y deja de aparecer en el listado', async () => {
-    const creado = await request(app).post('/api/estudiantes').send({ nombre: 'Borrar', apellido: 'Este' })
-
-    const eliminar = await request(app).delete(`/api/estudiantes/${creado.body.id}`)
-    expect(eliminar.status).toBe(204)
-
-    const listado = await request(app).get('/api/estudiantes')
-    const encontrado = listado.body.find((e) => e.id === creado.body.id)
-    expect(encontrado).toBeUndefined()
+  it('actualiza datos y estado', async () => {
+    const creado = await conToken(request(app).post('/api/estudiantes'), admin)
+      .send({ carne: 'EST-101', nombre: 'Temporal', apellido: 'Uno' })
+    const res = await conToken(request(app).put(`/api/estudiantes/${creado.body.id_estudiante}`), admin)
+      .send({ carne: 'EST-101', nombre: 'Temporal', apellido: 'Dos', estado: 'Inactivo' })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ apellido: 'Dos', estado: 'Inactivo' })
   })
 
-  it('el historial de asistencia de un estudiante recien creado (sin sesiones) llega vacio', async () => {
-    const creado = await request(app).post('/api/estudiantes').send({ nombre: 'Sin', apellido: 'Historial' })
-
-    const historial = await request(app).get(`/api/estudiantes/${creado.body.id}/asistencia`)
-
-    expect(historial.status).toBe(200)
-    expect(historial.body).toEqual([])
+  it('realiza una baja lógica y conserva el registro', async () => {
+    const creado = await conToken(request(app).post('/api/estudiantes'), admin)
+      .send({ carne: 'EST-102', nombre: 'Baja', apellido: 'Lógica' })
+    const res = await conToken(request(app).delete(`/api/estudiantes/${creado.body.id_estudiante}`), admin)
+    expect(res.status).toBe(200)
+    expect(res.body.estado).toBe('Inactivo')
+    const listado = await conToken(request(app).get('/api/estudiantes'), admin)
+    expect(listado.body.find((e) => e.id_estudiante === creado.body.id_estudiante)).toBeDefined()
   })
 
-  it('el historial de asistencia refleja los registros marcados en sus cursos', async () => {
-    const curso = await request(app).post('/api/cursos').send({ nombre: 'Curso historial' })
-    const estudiante = await request(app).post('/api/estudiantes').send({ nombre: 'Con', apellido: 'Historial' })
-    await request(app)
-      .post(`/api/cursos/${curso.body.id}/inscripciones`)
-      .send({ idEstudiante: estudiante.body.id })
+  it('impide al docente administrar estudiantes', async () => {
+    const res = await conToken(request(app).post('/api/estudiantes'), docente)
+      .send({ carne: 'EST-103', nombre: 'No', apellido: 'Permitido' })
+    expect(res.status).toBe(403)
+  })
 
-    const sesion = await request(app)
-      .post(`/api/cursos/${curso.body.id}/sesiones`)
-      .send({ fecha: '2026-09-15' })
-    await request(app)
-      .post(`/api/sesiones/${sesion.body.id}/asistencia`)
-      .send({ idEstudiante: estudiante.body.id, estado: 'presente' })
+  it('marca el historial existente como pendiente sin consultar el modelo viejo', async () => {
+    const res = await conToken(request(app).get('/api/estudiantes/1/asistencia'), docente)
+    expect(res.status).toBe(501)
+    expect(res.body.error).toContain('pendiente')
+  })
 
-    const historial = await request(app).get(`/api/estudiantes/${estudiante.body.id}/asistencia`)
-
-    expect(historial.status).toBe(200)
-    expect(historial.body).toHaveLength(1)
-    expect(historial.body[0]).toMatchObject({ estado: 'presente', id_curso: curso.body.id, fecha: '2026-09-15' })
+  it('mantiene 404 para el historial de un estudiante inexistente', async () => {
+    const res = await conToken(request(app).get('/api/estudiantes/99999/asistencia'), admin)
+    expect(res.status).toBe(404)
   })
 })

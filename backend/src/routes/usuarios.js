@@ -4,465 +4,168 @@ import { db } from '../db.js'
 import { permitirRoles } from '../middleware/auth.js'
 
 const router = Router()
+const rolesValidos = ['administrador', 'docente']
 
-// Todas las rutas de este archivo son exclusivas del administrador.
 router.use(permitirRoles('administrador'))
 
-// ======================================================
-// GET /api/usuarios
-// Listar usuarios
-// ======================================================
+const consultaUsuario = `
+  SELECT
+    u.id_usuario,
+    u.nombre,
+    u.correo,
+    u.rol,
+    u.activo,
+    u.id_docente,
+    u.creado_en,
+    d.nombre AS docente_nombre,
+    d.apellido AS docente_apellido
+  FROM usuarios u
+  LEFT JOIN docentes d ON d.id_docente = u.id_docente
+`
+
+function buscarUsuario(id) {
+  return db.prepare(`${consultaUsuario} WHERE u.id_usuario = ?`).get(id)
+}
+
+function validarBase({ nombre, correo, rol }) {
+  if (!nombre?.trim() || !correo?.trim() || !rol) {
+    return 'Nombre, correo y rol son obligatorios.'
+  }
+  if (!rolesValidos.includes(rol)) return 'El rol seleccionado no es válido.'
+  return null
+}
+
+function validarDocente(idDocente, idUsuario = null) {
+  if (!idDocente) return { error: 'Debe seleccionar el docente asociado.' }
+
+  const docente = db.prepare(`
+    SELECT id_docente FROM docentes WHERE id_docente = ?
+  `).get(idDocente)
+  if (!docente) return { error: 'El docente seleccionado no existe.' }
+
+  const asociado = db.prepare(`
+    SELECT id_usuario FROM usuarios
+    WHERE id_docente = ? AND (? IS NULL OR id_usuario <> ?)
+  `).get(idDocente, idUsuario, idUsuario)
+  if (asociado) return { conflicto: 'Este docente ya tiene un usuario asociado.' }
+
+  return { id: Number(idDocente) }
+}
+
 router.get('/', (req, res) => {
-  try {
-    const usuarios = db.prepare(`
-      SELECT
-        u.id,
-        u.nombre,
-        u.correo,
-        u.rol,
-        u.activo,
-        u.id_docente,
-        u.creado_en,
-        d.nombre AS docente_nombre,
-        d.apellido AS docente_apellido
-      FROM usuarios u
-      LEFT JOIN docentes d
-        ON d.id = u.id_docente
-      ORDER BY u.id
-    `).all()
-
-    res.json(usuarios)
-  } catch (error) {
-    console.error('Error al obtener usuarios:', error)
-
-    res.status(500).json({
-      error: 'No se pudieron obtener los usuarios.'
-    })
-  }
+  res.json(db.prepare(`${consultaUsuario} ORDER BY u.id_usuario`).all())
 })
 
-// ======================================================
-// GET /api/usuarios/:id
-// Obtener un usuario
-// ======================================================
 router.get('/:id', (req, res) => {
-  try {
-    const usuario = db.prepare(`
-      SELECT
-        u.id,
-        u.nombre,
-        u.correo,
-        u.rol,
-        u.activo,
-        u.id_docente,
-        u.creado_en,
-        d.nombre AS docente_nombre,
-        d.apellido AS docente_apellido
-      FROM usuarios u
-      LEFT JOIN docentes d
-        ON d.id = u.id_docente
-      WHERE u.id = ?
-    `).get(req.params.id)
-
-    if (!usuario) {
-      return res.status(404).json({
-        error: 'Usuario no encontrado.'
-      })
-    }
-
-    res.json(usuario)
-  } catch (error) {
-    console.error('Error al obtener usuario:', error)
-
-    res.status(500).json({
-      error: 'No se pudo obtener el usuario.'
-    })
-  }
+  const usuario = buscarUsuario(req.params.id)
+  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado.' })
+  return res.json(usuario)
 })
 
-// ======================================================
-// POST /api/usuarios
-// Crear usuario
-// ======================================================
 router.post('/', (req, res) => {
+  const { nombre, correo, password, rol, idDocente } = req.body
+  const error = validarBase({ nombre, correo, rol })
+  if (error || !password) {
+    return res.status(400).json({
+      error: error || 'La contraseña es obligatoria.'
+    })
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' })
+  }
+
+  let idDocenteFinal = null
+  if (rol === 'docente') {
+    const validacion = validarDocente(idDocente)
+    if (validacion.error) return res.status(400).json({ error: validacion.error })
+    if (validacion.conflicto) return res.status(409).json({ error: validacion.conflicto })
+    idDocenteFinal = validacion.id
+  }
+
   try {
-    const {
-      nombre,
-      correo,
-      password,
-      rol,
-      idDocente
-    } = req.body
-
-    if (!nombre || !correo || !password || !rol) {
-      return res.status(400).json({
-        error:
-          'Nombre, correo, contraseña y rol son obligatorios.'
-      })
-    }
-
-    const rolesValidos = [
-      'administrador',
-      'docente'
-    ]
-
-    if (!rolesValidos.includes(rol)) {
-      return res.status(400).json({
-        error: 'El rol seleccionado no es válido.'
-      })
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        error:
-          'La contraseña debe tener al menos 8 caracteres.'
-      })
-    }
-
-    const correoLimpio =
-      correo.trim().toLowerCase()
-
-    const existente = db.prepare(`
-      SELECT id
-      FROM usuarios
-      WHERE LOWER(correo) = LOWER(?)
-    `).get(correoLimpio)
-
-    if (existente) {
-      return res.status(409).json({
-        error:
-          'Ya existe un usuario con ese correo.'
-      })
-    }
-
-    let docenteAsociado = null
-
-    if (rol === 'docente') {
-      if (!idDocente) {
-        return res.status(400).json({
-          error:
-            'Debe seleccionar el docente asociado.'
-        })
-      }
-
-      docenteAsociado = db.prepare(`
-        SELECT id
-        FROM docentes
-        WHERE id = ?
-      `).get(idDocente)
-
-      if (!docenteAsociado) {
-        return res.status(400).json({
-          error:
-            'El docente seleccionado no existe.'
-        })
-      }
-
-      const usuarioDelDocente = db.prepare(`
-        SELECT id
-        FROM usuarios
-        WHERE id_docente = ?
-      `).get(idDocente)
-
-      if (usuarioDelDocente) {
-        return res.status(409).json({
-          error:
-            'Este docente ya tiene un usuario asociado.'
-        })
-      }
-    }
-
-    const passwordHash =
-      bcrypt.hashSync(password, 12)
-
     const info = db.prepare(`
-      INSERT INTO usuarios (
-        nombre,
-        correo,
-        password,
-        rol,
-        activo,
-        id_docente
-      )
+      INSERT INTO usuarios
+        (nombre, correo, password_hash, rol, activo, id_docente)
       VALUES (?, ?, ?, ?, 1, ?)
     `).run(
       nombre.trim(),
-      correoLimpio,
-      passwordHash,
+      correo.trim().toLowerCase(),
+      bcrypt.hashSync(password, 12),
       rol,
-      rol === 'docente'
-        ? Number(idDocente)
-        : null
+      idDocenteFinal
     )
-
-    const usuario = db.prepare(`
-      SELECT
-        id,
-        nombre,
-        correo,
-        rol,
-        activo,
-        id_docente,
-        creado_en
-      FROM usuarios
-      WHERE id = ?
-    `).get(info.lastInsertRowid)
-
-    res.status(201).json(usuario)
-  } catch (error) {
-    console.error('Error al crear usuario:', error)
-
-    res.status(500).json({
-      error: 'No se pudo crear el usuario.'
-    })
+    return res.status(201).json(buscarUsuario(info.lastInsertRowid))
+  } catch (errorSql) {
+    if (errorSql.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'Ya existe un usuario con ese correo o docente.' })
+    }
+    throw errorSql
   }
 })
 
-// ======================================================
-// PUT /api/usuarios/:id
-// Editar usuario
-// ======================================================
 router.put('/:id', (req, res) => {
+  const id = Number(req.params.id)
+  const actual = buscarUsuario(id)
+  if (!actual) return res.status(404).json({ error: 'Usuario no encontrado.' })
+
+  const { nombre, correo, password, rol, activo, idDocente } = req.body
+  const error = validarBase({ nombre, correo, rol })
+  if (error) return res.status(400).json({ error })
+  if (password && password.length < 8) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' })
+  }
+
+  let idDocenteFinal = null
+  if (rol === 'docente') {
+    const validacion = validarDocente(idDocente, id)
+    if (validacion.error) return res.status(400).json({ error: validacion.error })
+    if (validacion.conflicto) return res.status(409).json({ error: validacion.conflicto })
+    idDocenteFinal = validacion.id
+  }
+
+  const activoFinal = activo === false || activo === 0 || activo === '0' ? 0 : 1
+
   try {
-    const id = Number(req.params.id)
-
-    const usuarioActual = db.prepare(`
-      SELECT *
-      FROM usuarios
-      WHERE id = ?
-    `).get(id)
-
-    if (!usuarioActual) {
-      return res.status(404).json({
-        error: 'Usuario no encontrado.'
-      })
-    }
-
-    const {
-      nombre,
-      correo,
-      rol,
-      activo,
-      idDocente,
-      password
-    } = req.body
-
-    if (!nombre || !correo || !rol) {
-      return res.status(400).json({
-        error:
-          'Nombre, correo y rol son obligatorios.'
-      })
-    }
-
-    const rolesValidos = [
-      'administrador',
-      'docente'
-    ]
-
-    if (!rolesValidos.includes(rol)) {
-      return res.status(400).json({
-        error: 'El rol seleccionado no es válido.'
-      })
-    }
-
-    const correoLimpio =
-      correo.trim().toLowerCase()
-
-    const correoOcupado = db.prepare(`
-      SELECT id
-      FROM usuarios
-      WHERE LOWER(correo) = LOWER(?)
-        AND id <> ?
-    `).get(correoLimpio, id)
-
-    if (correoOcupado) {
-      return res.status(409).json({
-        error:
-          'Ya existe otro usuario con ese correo.'
-      })
-    }
-
-    let idDocenteFinal = null
-
-    if (rol === 'docente') {
-      if (!idDocente) {
-        return res.status(400).json({
-          error:
-            'Debe seleccionar el docente asociado.'
-        })
-      }
-
-      const docente = db.prepare(`
-        SELECT id
-        FROM docentes
-        WHERE id = ?
-      `).get(idDocente)
-
-      if (!docente) {
-        return res.status(400).json({
-          error:
-            'El docente seleccionado no existe.'
-        })
-      }
-
-      const usuarioDelDocente = db.prepare(`
-        SELECT id
-        FROM usuarios
-        WHERE id_docente = ?
-          AND id <> ?
-      `).get(idDocente, id)
-
-      if (usuarioDelDocente) {
-        return res.status(409).json({
-          error:
-            'Este docente ya tiene otro usuario asociado.'
-        })
-      }
-
-      idDocenteFinal = Number(idDocente)
-    }
-
-    const activoFinal =
-      activo === false ||
-      activo === 0 ||
-      activo === '0'
-        ? 0
-        : 1
-
     if (password) {
-      if (password.length < 8) {
-        return res.status(400).json({
-          error:
-            'La nueva contraseña debe tener al menos 8 caracteres.'
-        })
-      }
-
-      const passwordHash =
-        bcrypt.hashSync(password, 12)
-
       db.prepare(`
         UPDATE usuarios
-        SET
-          nombre = ?,
-          correo = ?,
-          password = ?,
-          rol = ?,
-          activo = ?,
-          id_docente = ?
-        WHERE id = ?
+        SET nombre = ?, correo = ?, password_hash = ?, rol = ?, activo = ?, id_docente = ?
+        WHERE id_usuario = ?
       `).run(
-        nombre.trim(),
-        correoLimpio,
-        passwordHash,
-        rol,
-        activoFinal,
-        idDocenteFinal,
-        id
+        nombre.trim(), correo.trim().toLowerCase(), bcrypt.hashSync(password, 12),
+        rol, activoFinal, idDocenteFinal, id
       )
     } else {
       db.prepare(`
         UPDATE usuarios
-        SET
-          nombre = ?,
-          correo = ?,
-          rol = ?,
-          activo = ?,
-          id_docente = ?
-        WHERE id = ?
-      `).run(
-        nombre.trim(),
-        correoLimpio,
-        rol,
-        activoFinal,
-        idDocenteFinal,
-        id
-      )
+        SET nombre = ?, correo = ?, rol = ?, activo = ?, id_docente = ?
+        WHERE id_usuario = ?
+      `).run(nombre.trim(), correo.trim().toLowerCase(), rol, activoFinal, idDocenteFinal, id)
     }
-
-    const usuario = db.prepare(`
-      SELECT
-        id,
-        nombre,
-        correo,
-        rol,
-        activo,
-        id_docente,
-        creado_en
-      FROM usuarios
-      WHERE id = ?
-    `).get(id)
-
-    res.json(usuario)
-  } catch (error) {
-    console.error('Error al editar usuario:', error)
-
-    res.status(500).json({
-      error: 'No se pudo editar el usuario.'
-    })
+    return res.json(buscarUsuario(id))
+  } catch (errorSql) {
+    if (errorSql.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'Ya existe un usuario con ese correo o docente.' })
+    }
+    throw errorSql
   }
 })
 
-// ======================================================
-// PATCH /api/usuarios/:id/estado
-// Activar o desactivar usuario
-// ======================================================
 router.patch('/:id/estado', (req, res) => {
-  try {
-    const id = Number(req.params.id)
-    const { activo } = req.body
+  const id = Number(req.params.id)
+  if (!buscarUsuario(id)) return res.status(404).json({ error: 'Usuario no encontrado.' })
 
-    const usuario = db.prepare(`
-      SELECT id
-      FROM usuarios
-      WHERE id = ?
-    `).get(id)
-
-    if (!usuario) {
-      return res.status(404).json({
-        error: 'Usuario no encontrado.'
-      })
-    }
-
-    // Evitar que el administrador desactive
-    // accidentalmente su propia sesión.
-    if (Number(req.usuario.id) === id && !activo) {
-      return res.status(400).json({
-        error:
-          'No puede desactivar su propio usuario.'
-      })
-    }
-
-    db.prepare(`
-      UPDATE usuarios
-      SET activo = ?
-      WHERE id = ?
-    `).run(activo ? 1 : 0, id)
-
-    const actualizado = db.prepare(`
-      SELECT
-        id,
-        nombre,
-        correo,
-        rol,
-        activo,
-        id_docente,
-        creado_en
-      FROM usuarios
-      WHERE id = ?
-    `).get(id)
-
-    res.json(actualizado)
-  } catch (error) {
-    console.error(
-      'Error al cambiar estado del usuario:',
-      error
-    )
-
-    res.status(500).json({
-      error:
-        'No se pudo cambiar el estado del usuario.'
-    })
+  const { activo } = req.body
+  if (![true, false, 1, 0, '1', '0'].includes(activo)) {
+    return res.status(400).json({ error: 'El estado activo debe ser verdadero o falso.' })
   }
+  const activoFinal = activo === true || activo === 1 || activo === '1' ? 1 : 0
+  if (Number(req.usuario.id) === id && activoFinal === 0) {
+    return res.status(400).json({ error: 'No puede desactivar su propio usuario.' })
+  }
+
+  db.prepare('UPDATE usuarios SET activo = ? WHERE id_usuario = ?').run(activoFinal, id)
+  return res.json(buscarUsuario(id))
 })
 
 export default router

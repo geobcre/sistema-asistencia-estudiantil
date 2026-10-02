@@ -1,169 +1,211 @@
 import Database from 'better-sqlite3'
+import bcrypt from 'bcryptjs'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import bcrypt from 'bcryptjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const schema = fs.readFileSync(
+  path.join(__dirname, '..', 'database', 'schema.sql'),
+  'utf8'
+)
 
-// En pruebas (NODE_ENV=test) se usa una base de datos en memoria, para no
-// tocar ni depender del archivo real asistencia.db.
 const dbPath = process.env.NODE_ENV === 'test'
   ? ':memory:'
   : path.join(__dirname, '..', 'asistencia.db')
 
 export const db = new Database(dbPath)
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
 
-// --- Esquema: tablas del MER ---
-db.exec(`
-  CREATE TABLE IF NOT EXISTS docentes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL,
-    apellido TEXT NOT NULL,
-    correo TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS usuarios (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL,
-    correo TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    rol TEXT NOT NULL DEFAULT 'docente'
-      CHECK(rol IN ('administrador', 'docente')),
-    activo INTEGER NOT NULL DEFAULT 1
-      CHECK(activo IN (0, 1)),
-    id_docente INTEGER UNIQUE REFERENCES docentes(id) ON DELETE SET NULL,
-    creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS estudiantes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL,
-    apellido TEXT NOT NULL,
-    carne TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS cursos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL,
-    codigo TEXT,
-    horario TEXT,
-    id_docente INTEGER REFERENCES docentes(id) ON DELETE SET NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS inscripciones (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_estudiante INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
-    id_curso INTEGER NOT NULL REFERENCES cursos(id) ON DELETE CASCADE,
-    UNIQUE(id_estudiante, id_curso)
-  );
-
-  CREATE TABLE IF NOT EXISTS sesiones (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_curso INTEGER NOT NULL REFERENCES cursos(id) ON DELETE CASCADE,
-    fecha TEXT NOT NULL,
-    UNIQUE(id_curso, fecha)
-  );
-
-  CREATE TABLE IF NOT EXISTS asistencias (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_sesion INTEGER NOT NULL REFERENCES sesiones(id) ON DELETE CASCADE,
-    id_estudiante INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
-    estado TEXT NOT NULL CHECK(estado IN ('presente','ausente','tarde','justificado')),
-    UNIQUE(id_sesion, id_estudiante)
-  );
-
-  -- Los UNIQUE de arriba ya indexan (id_estudiante, id_curso) e (id_sesion, id_estudiante)
-  -- por su columna líder. Estos cubren las queries que filtran por la otra columna.
-  CREATE INDEX IF NOT EXISTS idx_inscripciones_curso ON inscripciones(id_curso);
-  CREATE INDEX IF NOT EXISTS idx_asistencias_estudiante ON asistencias(id_estudiante);
-`)
-
-// --- Semilla inicial: solo si la tabla de docentes está vacía ---
-const totalDocentes = db.prepare('SELECT COUNT(*) AS n FROM docentes').get().n
-
-if (totalDocentes === 0) {
-  const insertar = db.transaction(() => {
-    const insDocente = db.prepare('INSERT INTO docentes (nombre, apellido, correo) VALUES (?, ?, ?)')
-    const dMarta = insDocente.run('Marta', 'Solís', 'msolis@escuela.edu').lastInsertRowid
-    const dHugo = insDocente.run('Hugo', 'Ramírez', 'hramirez@escuela.edu').lastInsertRowid
-    const dElena = insDocente.run('Elena', 'Vásquez', 'evasquez@escuela.edu').lastInsertRowid
-
-    const insEstudiante = db.prepare('INSERT INTO estudiantes (nombre, apellido, carne) VALUES (?, ?, ?)')
-    const eAna = insEstudiante.run('Ana', 'García', 'EST-001').lastInsertRowid
-    const eLuis = insEstudiante.run('Luis', 'Pérez', 'EST-002').lastInsertRowid
-    const eSofia = insEstudiante.run('Sofía', 'Morales', 'EST-003').lastInsertRowid
-    const eDiego = insEstudiante.run('Diego', 'Castillo', 'EST-004').lastInsertRowid
-    const eValeria = insEstudiante.run('Valeria', 'Ortiz', 'EST-005').lastInsertRowid
-    const eMateo = insEstudiante.run('Mateo', 'Ríos', 'EST-006').lastInsertRowid
-
-    const insCurso = db.prepare('INSERT INTO cursos (nombre, codigo, horario, id_docente) VALUES (?, ?, ?, ?)')
-    const cMate = insCurso.run('Matemática I', 'MAT-101', 'Lun/Mié 8:00', dMarta).lastInsertRowid
-    const cLen = insCurso.run('Lenguaje', 'LEN-101', 'Mar/Jue 10:00', dHugo).lastInsertRowid
-    const cCien = insCurso.run('Ciencias Naturales', 'CNA-101', 'Vie 9:00', dElena).lastInsertRowid
-
-    const insInscripcion = db.prepare('INSERT INTO inscripciones (id_estudiante, id_curso) VALUES (?, ?)')
-    insInscripcion.run(eAna, cMate)
-    insInscripcion.run(eLuis, cMate)
-    insInscripcion.run(eSofia, cMate)
-    insInscripcion.run(eDiego, cLen)
-    insInscripcion.run(eValeria, cLen)
-    insInscripcion.run(eAna, cLen)
-    insInscripcion.run(eMateo, cCien)
-    insInscripcion.run(eLuis, cCien)
-    insInscripcion.run(eSofia, cCien)
-
-    const insSesion = db.prepare('INSERT INTO sesiones (id_curso, fecha) VALUES (?, ?)')
-    const s1 = insSesion.run(cMate, '2026-08-24').lastInsertRowid
-    const s2 = insSesion.run(cMate, '2026-08-26').lastInsertRowid
-    const s3 = insSesion.run(cLen, '2026-08-25').lastInsertRowid
-    const s4 = insSesion.run(cCien, '2026-08-28').lastInsertRowid
-
-    const insAsistencia = db.prepare('INSERT INTO asistencias (id_sesion, id_estudiante, estado) VALUES (?, ?, ?)')
-    insAsistencia.run(s1, eAna, 'presente')
-    insAsistencia.run(s1, eLuis, 'presente')
-    insAsistencia.run(s1, eSofia, 'ausente')
-    insAsistencia.run(s2, eAna, 'presente')
-    insAsistencia.run(s2, eLuis, 'tarde')
-    insAsistencia.run(s2, eSofia, 'presente')
-    insAsistencia.run(s3, eDiego, 'presente')
-    insAsistencia.run(s3, eValeria, 'justificado')
-    insAsistencia.run(s3, eAna, 'presente')
-    insAsistencia.run(s4, eMateo, 'presente')
-    insAsistencia.run(s4, eLuis, 'presente')
-    insAsistencia.run(s4, eSofia, 'ausente')
-  })
-// --- Usuario administrador inicial ---
-
-  insertar()
-  console.log('Base de datos inicializada con datos de ejemplo.')
+if (process.env.NODE_ENV !== 'test') {
+  db.pragma('journal_mode = WAL')
 }
 
-// --- Usuario administrador inicial ---
-const totalUsuarios = db.prepare(
-  'SELECT COUNT(*) AS n FROM usuarios'
-).get().n
+function obtenerOInsertar(database, seleccionar, insertar, paramsSeleccionar, paramsInsertar) {
+  const existente = database.prepare(seleccionar).get(...paramsSeleccionar)
+  if (existente) return existente
 
-if (totalUsuarios === 0) {
-  const passwordHash = bcrypt.hashSync('Admin123*', 12)
+  const resultado = database.prepare(insertar).run(...paramsInsertar)
+  return { id: Number(resultado.lastInsertRowid) }
+}
 
-  db.prepare(`
-    INSERT INTO usuarios (
-      nombre,
-      correo,
-      password,
-      rol,
-      activo
+function sembrar(database) {
+  database.transaction(() => {
+    const ciclo = obtenerOInsertar(
+      database,
+      'SELECT id_ciclo AS id FROM ciclos_escolares WHERE anio = ?',
+      'INSERT INTO ciclos_escolares (anio, estado) VALUES (?, ?)',
+      [2026], [2026, 'Activo']
     )
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
-    'Administrador',
-    'admin@escuela.edu',
-    passwordHash,
-    'administrador',
-    1
-  )
 
-  console.log('Usuario administrador inicial creado.')
+    const grupos = {}
+    for (const seccion of ['A', 'B']) {
+      grupos[seccion] = obtenerOInsertar(
+        database,
+        `SELECT id_grupo AS id FROM grupos
+         WHERE id_ciclo = ? AND grado = ? AND seccion = ?`,
+        'INSERT INTO grupos (grado, seccion, id_ciclo) VALUES (?, ?, ?)',
+        [ciclo.id, 4, seccion], [4, seccion, ciclo.id]
+      )
+    }
+
+    const docentes = {}
+    for (const [clave, nombre, apellido, correo] of [
+      ['marta', 'Marta', 'Solís', 'msolis@escuela.edu'],
+      ['hugo', 'Hugo', 'Ramírez', 'hramirez@escuela.edu'],
+      ['elena', 'Elena', 'Vásquez', 'evasquez@escuela.edu'],
+    ]) {
+      docentes[clave] = obtenerOInsertar(
+        database,
+        'SELECT id_docente AS id FROM docentes WHERE correo = ?',
+        `INSERT INTO docentes (nombre, apellido, correo, estado)
+         VALUES (?, ?, ?, 'Activo')`,
+        [correo], [nombre, apellido, correo]
+      )
+    }
+
+    const matriculas = {}
+    for (const [clave, carne, nombre, apellido, seccion] of [
+      ['ana', 'EST-001', 'Ana', 'García', 'A'],
+      ['luis', 'EST-002', 'Luis', 'Pérez', 'A'],
+      ['sofia', 'EST-003', 'Sofía', 'Morales', 'A'],
+      ['diego', 'EST-004', 'Diego', 'Castillo', 'B'],
+      ['valeria', 'EST-005', 'Valeria', 'Ortiz', 'B'],
+      ['mateo', 'EST-006', 'Mateo', 'Ríos', 'B'],
+    ]) {
+      const estudiante = obtenerOInsertar(
+        database,
+        'SELECT id_estudiante AS id FROM estudiantes WHERE carne = ?',
+        `INSERT INTO estudiantes (carne, nombre, apellido, estado)
+         VALUES (?, ?, ?, 'Activo')`,
+        [carne], [carne, nombre, apellido]
+      )
+
+      matriculas[clave] = obtenerOInsertar(
+        database,
+        `SELECT id_matricula AS id FROM matriculas
+         WHERE id_estudiante = ? AND id_grupo = ?`,
+        `INSERT INTO matriculas
+           (id_estudiante, id_grupo, fecha_matricula, estado)
+         VALUES (?, ?, ?, 'Activa')`,
+        [estudiante.id, grupos[seccion].id],
+        [estudiante.id, grupos[seccion].id, '2026-01-15']
+      )
+    }
+
+    const asignaturas = {}
+    for (const [clave, nombre, codigo] of [
+      ['mate', 'Matemática', 'MAT-101'],
+      ['lenguaje', 'Lenguaje', 'LEN-101'],
+      ['ciencias', 'Ciencias Naturales', 'CNA-101'],
+    ]) {
+      asignaturas[clave] = obtenerOInsertar(
+        database,
+        'SELECT id_asignatura AS id FROM asignaturas WHERE codigo = ?',
+        `INSERT INTO asignaturas (nombre, codigo, estado)
+         VALUES (?, ?, 'Activa')`,
+        [codigo], [nombre, codigo]
+      )
+    }
+
+    const asignaciones = {}
+    for (const [clave, asignatura, docente, seccion, horario] of [
+      ['mate4a', 'mate', 'marta', 'A', 'Lun/Mié 8:00'],
+      ['lenguaje4a', 'lenguaje', 'hugo', 'A', 'Mar/Jue 10:00'],
+      ['ciencias4b', 'ciencias', 'elena', 'B', 'Vie 9:00'],
+    ]) {
+      asignaciones[clave] = obtenerOInsertar(
+        database,
+        `SELECT id_asignacion AS id FROM asignaciones_academicas
+         WHERE id_asignatura = ? AND id_docente = ? AND id_grupo = ?
+           AND fecha_inicio = ?`,
+        `INSERT INTO asignaciones_academicas
+           (id_asignatura, id_docente, id_grupo, horario, fecha_inicio, estado)
+         VALUES (?, ?, ?, ?, ?, 'Activa')`,
+        [asignaturas[asignatura].id, docentes[docente].id, grupos[seccion].id, '2026-01-20'],
+        [asignaturas[asignatura].id, docentes[docente].id, grupos[seccion].id, horario, '2026-01-20']
+      )
+    }
+
+    const inscripciones = {}
+    for (const [clave, estudiante, asignacion] of [
+      ['anaMate', 'ana', 'mate4a'], ['luisMate', 'luis', 'mate4a'],
+      ['sofiaMate', 'sofia', 'mate4a'], ['anaLenguaje', 'ana', 'lenguaje4a'],
+      ['luisLenguaje', 'luis', 'lenguaje4a'], ['sofiaLenguaje', 'sofia', 'lenguaje4a'],
+      ['diegoCiencias', 'diego', 'ciencias4b'],
+      ['valeriaCiencias', 'valeria', 'ciencias4b'],
+      ['mateoCiencias', 'mateo', 'ciencias4b'],
+    ]) {
+      inscripciones[clave] = obtenerOInsertar(
+        database,
+        `SELECT id_inscripcion AS id FROM inscripciones
+         WHERE id_matricula = ? AND id_asignacion = ?`,
+        `INSERT INTO inscripciones
+           (id_matricula, id_asignacion, fecha_inscripcion, estado)
+         VALUES (?, ?, ?, 'Activa')`,
+        [matriculas[estudiante].id, asignaciones[asignacion].id],
+        [matriculas[estudiante].id, asignaciones[asignacion].id, '2026-01-20']
+      )
+    }
+
+    const sesiones = {}
+    for (const [clave, asignacion, fecha] of [
+      ['mate1', 'mate4a', '2026-08-24'],
+      ['mate2', 'mate4a', '2026-08-26'],
+      ['lenguaje1', 'lenguaje4a', '2026-08-25'],
+      ['ciencias1', 'ciencias4b', '2026-08-28'],
+    ]) {
+      sesiones[clave] = obtenerOInsertar(
+        database,
+        `SELECT id_sesion AS id FROM sesiones
+         WHERE id_asignacion = ? AND fecha = ?`,
+        `INSERT INTO sesiones (id_asignacion, fecha, estado)
+         VALUES (?, ?, 'Cerrada')`,
+        [asignaciones[asignacion].id, fecha],
+        [asignaciones[asignacion].id, fecha]
+      )
+    }
+
+    for (const [sesion, inscripcion, estado] of [
+      ['mate1', 'anaMate', 'Presente'], ['mate1', 'luisMate', 'Presente'],
+      ['mate1', 'sofiaMate', 'Ausente'], ['mate2', 'anaMate', 'Presente'],
+      ['mate2', 'luisMate', 'Tarde'], ['mate2', 'sofiaMate', 'Presente'],
+      ['lenguaje1', 'anaLenguaje', 'Presente'],
+      ['lenguaje1', 'luisLenguaje', 'Presente'],
+      ['lenguaje1', 'sofiaLenguaje', 'Justificado'],
+      ['ciencias1', 'diegoCiencias', 'Presente'],
+      ['ciencias1', 'valeriaCiencias', 'Presente'],
+      ['ciencias1', 'mateoCiencias', 'Ausente'],
+    ]) {
+      obtenerOInsertar(
+        database,
+        `SELECT id_asistencia AS id FROM asistencias
+         WHERE id_sesion = ? AND id_inscripcion = ?`,
+        `INSERT INTO asistencias (id_sesion, id_inscripcion, estado)
+         VALUES (?, ?, ?)`,
+        [sesiones[sesion].id, inscripciones[inscripcion].id],
+        [sesiones[sesion].id, inscripciones[inscripcion].id, estado]
+      )
+    }
+
+    for (const [nombre, correo, password, rol, idDocente] of [
+      ['Administrador', 'admin@escuela.edu', 'Admin123*', 'administrador', null],
+      ['Marta Solís', 'msolis@escuela.edu', 'Docente123*', 'docente', docentes.marta.id],
+    ]) {
+      if (!database.prepare('SELECT 1 FROM usuarios WHERE correo = ?').get(correo)) {
+        database.prepare(`
+          INSERT INTO usuarios
+            (nombre, correo, password_hash, rol, activo, id_docente)
+          VALUES (?, ?, ?, ?, 1, ?)
+        `).run(nombre, correo, bcrypt.hashSync(password, 10), rol, idDocente)
+      }
+    }
+  })()
 }
+
+export function inicializarBaseDeDatos(database) {
+  database.pragma('foreign_keys = ON')
+  database.exec(schema)
+  sembrar(database)
+}
+
+inicializarBaseDeDatos(db)

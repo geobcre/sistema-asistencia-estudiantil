@@ -10,6 +10,10 @@ import estadisticasRouter from './routes/estadisticas.js'
 import reportesRouter from './routes/reportes.js'
 import authRouter from './routes/auth.js'
 import usuariosRouter from './routes/usuarios.js'
+import ciclosRouter from './routes/ciclos.js'
+import gruposRouter from './routes/grupos.js'
+import asignaturasRouter from './routes/asignaturas.js'
+import asignacionesAcademicasRouter from './routes/asignaciones-academicas.js'
 
 import { verificarToken } from './middleware/auth.js'
 
@@ -48,6 +52,10 @@ app.use(verificarToken)
 app.use('/api/usuarios', usuariosRouter)
 app.use('/api/docentes', docentesRouter)
 app.use('/api/estudiantes', estudiantesRouter)
+app.use('/api/ciclos', ciclosRouter)
+app.use('/api/grupos', gruposRouter)
+app.use('/api/asignaturas', asignaturasRouter)
+app.use('/api/asignaciones-academicas', asignacionesAcademicasRouter)
 app.use('/api/cursos', cursosRouter)
 app.use('/api/sesiones', sesionesRouter)
 app.use('/api/estadisticas', estadisticasRouter)

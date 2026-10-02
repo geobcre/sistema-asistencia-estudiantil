@@ -22,10 +22,10 @@ router.post('/login', (req, res) => {
     // Buscar usuario por correo
     const usuario = db.prepare(`
       SELECT
-        id,
+        id_usuario,
         nombre,
         correo,
-        password,
+        password_hash,
         rol,
         activo,
         id_docente
@@ -50,7 +50,7 @@ router.post('/login', (req, res) => {
     // Comparar contraseña con el hash almacenado
     const passwordCorrecta = bcrypt.compareSync(
       password,
-      usuario.password
+      usuario.password_hash
     )
 
     if (!passwordCorrecta) {
@@ -62,7 +62,7 @@ router.post('/login', (req, res) => {
     // Generar token
     const token = jwt.sign(
       {
-        id: usuario.id,
+        id: usuario.id_usuario,
         rol: usuario.rol,
         id_docente: usuario.id_docente
       },
@@ -77,7 +77,7 @@ router.post('/login', (req, res) => {
       mensaje: 'Inicio de sesión correcto.',
       token,
       usuario: {
-        id: usuario.id,
+        id: usuario.id_usuario,
         nombre: usuario.nombre,
         correo: usuario.correo,
         rol: usuario.rol,

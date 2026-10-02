@@ -3,139 +3,93 @@ import { db } from '../db.js'
 import { permitirRoles } from '../middleware/auth.js'
 
 const router = Router()
+const estadosValidos = ['Activo', 'Inactivo']
 
-// ======================================================
-// GET /api/docentes
-// Administrador y docente pueden consultar docentes
-// ======================================================
+function normalizarCorreo(correo) {
+  return correo?.trim().toLowerCase() || null
+}
+
+function validarDatos({ nombre, apellido, estado = 'Activo' }) {
+  if (!nombre?.trim() || !apellido?.trim()) {
+    return 'Nombre y apellido son requeridos.'
+  }
+  if (!estadosValidos.includes(estado)) {
+    return 'El estado debe ser Activo o Inactivo.'
+  }
+  return null
+}
+
+function buscarDocente(id) {
+  return db.prepare(`
+    SELECT id_docente, nombre, apellido, correo, estado
+    FROM docentes
+    WHERE id_docente = ?
+  `).get(id)
+}
+
 router.get('/', (req, res) => {
-  res.json(
-    db.prepare(`
-      SELECT *
-      FROM docentes
-      ORDER BY id
-    `).all()
-  )
+  const docentes = db.prepare(`
+    SELECT id_docente, nombre, apellido, correo, estado
+    FROM docentes
+    ORDER BY id_docente
+  `).all()
+  res.json(docentes)
 })
 
-// ======================================================
-// POST /api/docentes
-// Solo administrador
-// ======================================================
-router.post(
-  '/',
-  permitirRoles('administrador'),
-  (req, res) => {
-    const { nombre, apellido, correo } = req.body
+router.post('/', permitirRoles('administrador'), (req, res) => {
+  const { nombre, apellido, correo, estado = 'Activo' } = req.body
+  const error = validarDatos({ nombre, apellido, estado })
+  if (error) return res.status(400).json({ error })
 
-    if (!nombre || !apellido) {
-      return res.status(400).json({
-        error: 'Nombre y apellido son requeridos.'
-      })
-    }
-
+  try {
     const info = db.prepare(`
-      INSERT INTO docentes (
-        nombre,
-        apellido,
-        correo
-      )
-      VALUES (?, ?, ?)
-    `).run(
-      nombre.trim(),
-      apellido.trim(),
-      correo?.trim() || null
-    )
+      INSERT INTO docentes (nombre, apellido, correo, estado)
+      VALUES (?, ?, ?, ?)
+    `).run(nombre.trim(), apellido.trim(), normalizarCorreo(correo), estado)
 
-    const docente = db.prepare(`
-      SELECT *
-      FROM docentes
-      WHERE id = ?
-    `).get(info.lastInsertRowid)
-
-    res.status(201).json(docente)
+    return res.status(201).json(buscarDocente(info.lastInsertRowid))
+  } catch (errorSql) {
+    if (errorSql.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'Ya existe un docente con ese correo.' })
+    }
+    throw errorSql
   }
-)
+})
 
-// ======================================================
-// PUT /api/docentes/:id
-// Solo administrador
-// ======================================================
-router.put(
-  '/:id',
-  permitirRoles('administrador'),
-  (req, res) => {
-    const { nombre, apellido, correo } = req.body
+router.put('/:id', permitirRoles('administrador'), (req, res) => {
+  const existente = buscarDocente(req.params.id)
+  if (!existente) return res.status(404).json({ error: 'Docente no encontrado.' })
 
-    if (!nombre || !apellido) {
-      return res.status(400).json({
-        error: 'Nombre y apellido son requeridos.'
-      })
-    }
+  const { nombre, apellido, correo, estado = existente.estado } = req.body
+  const error = validarDatos({ nombre, apellido, estado })
+  if (error) return res.status(400).json({ error })
 
-    const existente = db.prepare(`
-      SELECT id
-      FROM docentes
-      WHERE id = ?
-    `).get(req.params.id)
-
-    if (!existente) {
-      return res.status(404).json({
-        error: 'Docente no encontrado.'
-      })
-    }
-
+  try {
     db.prepare(`
       UPDATE docentes
-      SET
-        nombre = ?,
-        apellido = ?,
-        correo = ?
-      WHERE id = ?
-    `).run(
-      nombre.trim(),
-      apellido.trim(),
-      correo?.trim() || null,
-      req.params.id
-    )
+      SET nombre = ?, apellido = ?, correo = ?, estado = ?
+      WHERE id_docente = ?
+    `).run(nombre.trim(), apellido.trim(), normalizarCorreo(correo), estado, req.params.id)
 
-    const docente = db.prepare(`
-      SELECT *
-      FROM docentes
-      WHERE id = ?
-    `).get(req.params.id)
-
-    res.json(docente)
-  }
-)
-
-// ======================================================
-// DELETE /api/docentes/:id
-// Solo administrador
-// ======================================================
-router.delete(
-  '/:id',
-  permitirRoles('administrador'),
-  (req, res) => {
-    const existente = db.prepare(`
-      SELECT id
-      FROM docentes
-      WHERE id = ?
-    `).get(req.params.id)
-
-    if (!existente) {
-      return res.status(404).json({
-        error: 'Docente no encontrado.'
-      })
+    return res.json(buscarDocente(req.params.id))
+  } catch (errorSql) {
+    if (errorSql.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'Ya existe un docente con ese correo.' })
     }
-
-    db.prepare(`
-      DELETE FROM docentes
-      WHERE id = ?
-    `).run(req.params.id)
-
-    res.status(204).end()
+    throw errorSql
   }
-)
+})
+
+router.delete('/:id', permitirRoles('administrador'), (req, res) => {
+  if (!buscarDocente(req.params.id)) {
+    return res.status(404).json({ error: 'Docente no encontrado.' })
+  }
+
+  db.prepare(`
+    UPDATE docentes SET estado = 'Inactivo' WHERE id_docente = ?
+  `).run(req.params.id)
+
+  return res.json(buscarDocente(req.params.id))
+})
 
 export default router
