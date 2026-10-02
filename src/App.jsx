@@ -1,13 +1,7 @@
 import { useState } from 'react'
 
 import {
-  docentesIniciales,
-  estudiantesIniciales,
-  cursosIniciales,
   gruposIniciales,
-  inscripcionesIniciales,
-  sesionesIniciales,
-  asistenciasIniciales,
 } from './data/mockData.js'
 
 import Login from './components/Login.jsx'
@@ -18,7 +12,11 @@ import Asistencia from './components/Asistencia.jsx'
 import Estadisticas from './components/Estadisticas.jsx'
 import Reportes from './components/Reportes.jsx'
 
-const SECCIONES = [
+// ======================================================
+// SECCIONES DISPONIBLES
+// ======================================================
+
+const SECCIONES_ADMIN = [
   { id: 'docentes', label: 'Docentes', numero: '01' },
   { id: 'estudiantes', label: 'Estudiantes', numero: '02' },
   { id: 'cursos', label: 'Asignaturas', numero: '03' },
@@ -26,6 +24,16 @@ const SECCIONES = [
   { id: 'estadisticas', label: 'Estadísticas', numero: '05' },
   { id: 'reportes', label: 'Reportes', numero: '06' },
 ]
+
+const SECCIONES_DOCENTE = [
+  { id: 'asistencia', label: 'Asistencia', numero: '01' },
+  { id: 'estadisticas', label: 'Estadísticas', numero: '02' },
+  { id: 'reportes', label: 'Reportes', numero: '03' },
+]
+
+// ======================================================
+// RECUPERAR USUARIO GUARDADO
+// ======================================================
 
 function obtenerUsuarioGuardado() {
   try {
@@ -41,15 +49,32 @@ export default function App() {
   const [usuario, setUsuario] = useState(obtenerUsuarioGuardado)
   const [vista, setVista] = useState('asistencia')
 
-  // Estos datos temporales serán reemplazados progresivamente
-  // por los datos reales provenientes del backend.
-  const [docentes, setDocentes] = useState(docentesIniciales)
-  const [estudiantes, setEstudiantes] = useState(estudiantesIniciales)
-  const [cursos, setCursos] = useState(cursosIniciales)
+  // ====================================================
+  // DATOS DEL SISTEMA
+  // ====================================================
+
+  // Estos estados comienzan vacíos.
+  // Cada módulo obtiene sus datos reales desde el backend.
+
+  const [docentes, setDocentes] = useState([])
+
+  const [estudiantes, setEstudiantes] = useState([])
+
+  const [cursos, setCursos] = useState([])
+
+  // Temporalmente mantenemos los grupos del mockData
+  // hasta conectar este catálogo con el backend.
   const [grupos] = useState(gruposIniciales)
-  const [inscripciones, setInscripciones] = useState(inscripcionesIniciales)
-  const [sesiones, setSesiones] = useState(sesionesIniciales)
-  const [asistencias, setAsistencias] = useState(asistenciasIniciales)
+
+  const [inscripciones, setInscripciones] = useState([])
+
+  const [sesiones, setSesiones] = useState([])
+
+  const [asistencias, setAsistencias] = useState([])
+
+  // ====================================================
+  // STORE
+  // ====================================================
 
   const store = {
     docentes,
@@ -73,25 +98,65 @@ export default function App() {
     setAsistencias,
   }
 
+  // ====================================================
+  // CERRAR SESIÓN
+  // ====================================================
+
   const cerrarSesion = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('usuario')
 
     setUsuario(null)
     setVista('asistencia')
+
+    // Limpiamos los datos de la sesión anterior.
+    setDocentes([])
+    setEstudiantes([])
+    setCursos([])
+    setInscripciones([])
+    setSesiones([])
+    setAsistencias([])
   }
+
+  // ====================================================
+  // LOGIN
+  // ====================================================
 
   if (!usuario) {
     return <Login onLogin={setUsuario} />
   }
 
+  // ====================================================
+  // DETERMINAR MENÚ SEGÚN EL ROL
+  // ====================================================
+
+  const esAdministrador =
+    usuario.rol === 'administrador'
+
+  const esDocente =
+    usuario.rol === 'docente'
+
+  const secciones = esAdministrador
+    ? SECCIONES_ADMIN
+    : SECCIONES_DOCENTE
+
+  // ====================================================
+  // INTERFAZ PRINCIPAL
+  // ====================================================
+
   return (
     <div className="app-shell">
+
       <aside className="sidebar">
+
         <div className="brand">
-          <span className="brand-mark">Ⓐ</span>
+
+          <span className="brand-mark">
+            Ⓐ
+          </span>
 
           <div>
+
             <p className="brand-title">
               Control de Asistencia
             </p>
@@ -99,44 +164,79 @@ export default function App() {
             <p className="brand-sub">
               Sistema de gestión estudiantil
             </p>
+
           </div>
+
         </div>
 
+        {/* ============================================= */}
+        {/* USUARIO AUTENTICADO */}
+        {/* ============================================= */}
+
         <div className="sidebar-user">
+
           <div className="sidebar-avatar">
-            {usuario.nombre?.charAt(0).toUpperCase()}
+            {usuario.nombre
+              ?.charAt(0)
+              .toUpperCase()}
           </div>
 
           <div>
+
             <p className="sidebar-user-name">
               {usuario.nombre}
             </p>
 
             <p className="sidebar-user-role">
-              {usuario.rol}
+              {esAdministrador
+                ? 'Administrador'
+                : esDocente
+                  ? 'Docente'
+                  : usuario.rol}
             </p>
+
           </div>
+
         </div>
 
+        {/* ============================================= */}
+        {/* NAVEGACIÓN SEGÚN ROL */}
+        {/* ============================================= */}
+
         <nav className="nav">
-          {SECCIONES.map((s) => (
+
+          {secciones.map((seccion) => (
+
             <button
-              key={s.id}
+              key={seccion.id}
               className={`nav-item ${
-                vista === s.id ? 'is-active' : ''
+                vista === seccion.id
+                  ? 'is-active'
+                  : ''
               }`}
-              onClick={() => setVista(s.id)}
+              onClick={() =>
+                setVista(seccion.id)
+              }
             >
+
               <span className="nav-num">
-                {s.numero}
+                {seccion.numero}
               </span>
 
-              {s.label}
+              {seccion.label}
+
             </button>
+
           ))}
+
         </nav>
 
+        {/* ============================================= */}
+        {/* PARTE INFERIOR */}
+        {/* ============================================= */}
+
         <div className="sidebar-bottom">
+
           <button
             className="logout-button"
             onClick={cerrarSesion}
@@ -147,34 +247,59 @@ export default function App() {
           <p className="sidebar-footnote">
             Sistema conectado al servidor de asistencia.
           </p>
+
         </div>
+
       </aside>
 
+      {/* =============================================== */}
+      {/* CONTENIDO PRINCIPAL */}
+      {/* =============================================== */}
+
       <main className="content">
-        {vista === 'docentes' && (
-          <Docentes store={store} />
-        )}
 
-        {vista === 'estudiantes' && (
-          <Estudiantes store={store} />
-        )}
+        {/* SOLO ADMINISTRADOR */}
 
-        {vista === 'cursos' && (
-          <Cursos store={store} />
-        )}
+        {esAdministrador &&
+          vista === 'docentes' && (
+            <Docentes store={store} />
+          )}
+
+        {esAdministrador &&
+          vista === 'estudiantes' && (
+            <Estudiantes store={store} />
+          )}
+
+        {esAdministrador &&
+          vista === 'cursos' && (
+            <Cursos store={store} />
+          )}
+
+        {/* ADMINISTRADOR Y DOCENTE */}
 
         {vista === 'asistencia' && (
-          <Asistencia store={store} />
+          <Asistencia
+            store={store}
+            usuario={usuario}
+          />
         )}
 
         {vista === 'estadisticas' && (
-          <Estadisticas store={store} />
+          <Estadisticas
+            store={store}
+            usuario={usuario}
+          />
         )}
 
         {vista === 'reportes' && (
-          <Reportes store={store} />
+          <Reportes
+            store={store}
+            usuario={usuario}
+          />
         )}
+
       </main>
+
     </div>
   )
 }

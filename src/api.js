@@ -43,7 +43,53 @@ async function solicitar(ruta, opciones = {}) {
 }
 
 export const api = {
-  // Docentes
+  // ====================================================
+  // AUTENTICACIÓN
+  // ====================================================
+
+  login: (correo, password) =>
+    solicitar('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        correo,
+        password,
+      }),
+    }),
+
+  // ====================================================
+  // USUARIOS
+  // ====================================================
+
+  getUsuarios: () =>
+    solicitar('/usuarios'),
+
+  getUsuario: (id) =>
+    solicitar(`/usuarios/${id}`),
+
+  crearUsuario: (data) =>
+    solicitar('/usuarios', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  editarUsuario: (id, data) =>
+    solicitar(`/usuarios/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  cambiarEstadoUsuario: (id, activo) =>
+    solicitar(`/usuarios/${id}/estado`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        activo,
+      }),
+    }),
+
+  // ====================================================
+  // DOCENTES
+  // ====================================================
+
   getDocentes: () =>
     solicitar('/docentes'),
 
@@ -64,7 +110,10 @@ export const api = {
       method: 'DELETE',
     }),
 
-  // Estudiantes
+  // ====================================================
+  // ESTUDIANTES
+  // ====================================================
+
   getEstudiantes: () =>
     solicitar('/estudiantes'),
 
@@ -85,7 +134,10 @@ export const api = {
       method: 'DELETE',
     }),
 
-  // Cursos
+  // ====================================================
+  // CURSOS / ASIGNATURAS
+  // ====================================================
+
   getCursos: () =>
     solicitar('/cursos'),
 
@@ -106,13 +158,19 @@ export const api = {
       method: 'DELETE',
     }),
 
+  // ====================================================
+  // INSCRIPCIONES
+  // ====================================================
+
   getEstudiantesDeCurso: (idCurso) =>
     solicitar(`/cursos/${idCurso}/estudiantes`),
 
   inscribirEstudiante: (idCurso, idEstudiante) =>
     solicitar(`/cursos/${idCurso}/inscripciones`, {
       method: 'POST',
-      body: JSON.stringify({ idEstudiante }),
+      body: JSON.stringify({
+        idEstudiante,
+      }),
     }),
 
   desinscribirEstudiante: (idCurso, idEstudiante) =>
@@ -123,14 +181,19 @@ export const api = {
       }
     ),
 
-  // Sesiones y asistencia
+  // ====================================================
+  // SESIONES Y ASISTENCIA
+  // ====================================================
+
   getSesionesDeCurso: (idCurso) =>
     solicitar(`/cursos/${idCurso}/sesiones`),
 
   crearOEncontrarSesion: (idCurso, fecha) =>
     solicitar(`/cursos/${idCurso}/sesiones`, {
       method: 'POST',
-      body: JSON.stringify({ fecha }),
+      body: JSON.stringify({
+        fecha,
+      }),
     }),
 
   getAsistenciaDeSesion: (idSesion) =>
@@ -145,19 +208,37 @@ export const api = {
       }),
     }),
 
-  // Estadísticas
+  // ====================================================
+  // ESTADÍSTICAS
+  // ====================================================
+
   getEstadisticasCurso: (idCurso) =>
     solicitar(`/estadisticas/curso/${idCurso}`),
 
   getEstudiantesEnRiesgo: () =>
     solicitar('/estadisticas/riesgo'),
 
-  // Reportes
-  getReportes: (filtros) => {
-    const params = new URLSearchParams(filtros).toString()
+  // ====================================================
+  // REPORTES
+  // ====================================================
+
+  getReportes: (filtros = {}) => {
+    const params = new URLSearchParams()
+
+    Object.entries(filtros).forEach(([clave, valor]) => {
+      if (
+        valor !== undefined &&
+        valor !== null &&
+        valor !== ''
+      ) {
+        params.append(clave, valor)
+      }
+    })
+
+    const query = params.toString()
 
     return solicitar(
-      `/reportes${params ? `?${params}` : ''}`
+      `/reportes${query ? `?${query}` : ''}`
     )
   },
 }
