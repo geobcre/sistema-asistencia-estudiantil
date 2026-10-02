@@ -90,9 +90,54 @@ router.get('/:id/asistencia', (req, res) => {
     return res.status(404).json({ error: 'Estudiante no encontrado.' })
   }
 
-  return res.status(501).json({
-    error: 'El historial de asistencia está pendiente de adaptación al nuevo modelo académico.'
-  })
+  let filtroDocente = ''
+  const parametros = [req.params.id]
+
+  if (req.usuario.rol === 'docente') {
+    if (!req.usuario.id_docente) return res.json([])
+    filtroDocente = 'AND aa.id_docente = ?'
+    parametros.push(req.usuario.id_docente)
+  } else if (req.usuario.rol !== 'administrador') {
+    return res.status(403).json({ error: 'No tiene acceso al historial de asistencia.' })
+  }
+
+  const historial = db.prepare(`
+    SELECT
+      a.id_asistencia,
+      a.estado,
+      s.id_sesion,
+      s.fecha,
+      s.estado AS sesion_estado,
+      i.id_inscripcion,
+      aa.id_asignacion,
+      asig.id_asignatura,
+      asig.nombre AS asignatura_nombre,
+      asig.codigo AS asignatura_codigo,
+      g.id_grupo,
+      g.grado,
+      g.seccion,
+      c.id_ciclo,
+      c.anio AS ciclo_anio,
+      d.id_docente,
+      d.nombre AS docente_nombre,
+      d.apellido AS docente_apellido
+    FROM estudiantes e
+    JOIN matriculas m ON m.id_estudiante = e.id_estudiante
+    JOIN inscripciones i ON i.id_matricula = m.id_matricula
+    JOIN asistencias a ON a.id_inscripcion = i.id_inscripcion
+    JOIN sesiones s ON s.id_sesion = a.id_sesion
+    JOIN asignaciones_academicas aa ON aa.id_asignacion = s.id_asignacion
+    JOIN asignaturas asig ON asig.id_asignatura = aa.id_asignatura
+    JOIN grupos g ON g.id_grupo = aa.id_grupo
+    JOIN ciclos_escolares c ON c.id_ciclo = g.id_ciclo
+    JOIN docentes d ON d.id_docente = aa.id_docente
+    WHERE e.id_estudiante = ?
+      AND s.estado <> 'Cancelada'
+      ${filtroDocente}
+    ORDER BY s.fecha DESC, asig.nombre
+  `).all(...parametros)
+
+  return res.json(historial)
 })
 
 export default router

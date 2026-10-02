@@ -62,10 +62,11 @@ describe('Estudiantes', () => {
     expect(res.status).toBe(403)
   })
 
-  it('marca el historial existente como pendiente sin consultar el modelo viejo', async () => {
+  it('consulta el historial real con el nuevo modelo', async () => {
     const res = await conToken(request(app).get('/api/estudiantes/1/asistencia'), docente)
-    expect(res.status).toBe(501)
-    expect(res.body.error).toContain('pendiente')
+    expect(res.status).toBe(200)
+    expect(res.body.length).toBeGreaterThan(0)
+    expect(res.body.every((fila) => fila.id_docente === 1)).toBe(true)
   })
 
   it('mantiene 404 para el historial de un estudiante inexistente', async () => {

@@ -1,61 +1,115 @@
-// Pruebas automatizadas del módulo de Sesiones (RF-05 del PAQ).
-// asistencia.test.js ya cubre la creación de sesiones y el upsert de
-// asistencia (CP-06/CP-07/CP-02). Este archivo cubre las rutas de consulta
-// que quedaban sin probar: listar sesiones de un curso y listar la
-// asistencia registrada en una sesión concreta.
-import { describe, it, expect } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { app } from '../app.js'
+import { db } from '../db.js'
+import { conToken, tokenAdministrador, tokenDocente } from './auth-helpers.js'
 
-describe('Módulo de Sesiones', () => {
-  it('CP-13: lista las sesiones de un curso ordenadas por fecha', async () => {
-    const curso = await request(app).post('/api/cursos').send({ nombre: 'Curso con sesiones' })
+describe('Sesiones académicas', () => {
+  let admin
+  let docente
 
-    await request(app).post(`/api/cursos/${curso.body.id}/sesiones`).send({ fecha: '2026-07-20' })
-    await request(app).post(`/api/cursos/${curso.body.id}/sesiones`).send({ fecha: '2026-07-05' })
-    await request(app).post(`/api/cursos/${curso.body.id}/sesiones`).send({ fecha: '2026-07-12' })
-
-    const res = await request(app).get(`/api/cursos/${curso.body.id}/sesiones`)
-
-    expect(res.status).toBe(200)
-    expect(res.body.map((s) => s.fecha)).toEqual(['2026-07-05', '2026-07-12', '2026-07-20'])
+  beforeAll(async () => {
+    admin = await tokenAdministrador()
+    docente = await tokenDocente()
   })
 
-  it('rechaza crear una sesión sin fecha', async () => {
-    const curso = await request(app).post('/api/cursos').send({ nombre: 'Curso sin fecha' })
+  it('crea, lista y obtiene una sesión de una asignación activa', async () => {
+    const creado = await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: 1, fecha: '2026-09-01' })
+    expect(creado.status).toBe(201)
+    expect(creado.body).toMatchObject({ id_asignacion: 1, estado: 'Abierta' })
 
-    const res = await request(app).post(`/api/cursos/${curso.body.id}/sesiones`).send({})
+    const listado = await conToken(request(app).get('/api/sesiones'), admin)
+    const detalle = await conToken(
+      request(app).get(`/api/sesiones/${creado.body.id_sesion}`), admin
+    )
+    expect(listado.body.some((s) => s.id_sesion === creado.body.id_sesion)).toBe(true)
+    expect(detalle.body.asignatura_codigo).toBe('MAT-101')
+  })
 
+  it('impide duplicar asignación y fecha', async () => {
+    await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: 1, fecha: '2026-09-02' })
+    const duplicada = await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: 1, fecha: '2026-09-02' })
+    expect(duplicada.status).toBe(409)
+  })
+
+  it('rechaza una asignación inactiva', async () => {
+    const id = Number(db.prepare(`
+      INSERT INTO asignaciones_academicas
+        (id_asignatura, id_docente, id_grupo, fecha_inicio, estado)
+      VALUES (1, 1, 1, '2026-01-20', 'Inactiva')
+    `).run().lastInsertRowid)
+    const res = await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: id, fecha: '2026-09-03' })
     expect(res.status).toBe(400)
+    expect(res.body.error).toContain('inactiva')
   })
 
-  it('una sesión recién creada no tiene asistencia registrada todavía', async () => {
-    const curso = await request(app).post('/api/cursos').send({ nombre: 'Curso sesion vacia' })
-    const sesion = await request(app).post(`/api/cursos/${curso.body.id}/sesiones`).send({ fecha: '2026-07-25' })
-
-    const res = await request(app).get(`/api/sesiones/${sesion.body.id}/asistencia`)
-
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual([])
+  it('rechaza fechas fuera del período de la asignación', async () => {
+    const id = Number(db.prepare(`
+      INSERT INTO asignaciones_academicas
+        (id_asignatura, id_docente, id_grupo, fecha_inicio, fecha_fin, estado)
+      VALUES (1, 1, 1, '2026-03-01', '2026-03-31', 'Activa')
+    `).run().lastInsertRowid)
+    const anterior = await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: id, fecha: '2026-02-28' })
+    const posterior = await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: id, fecha: '2026-04-01' })
+    expect([anterior.status, posterior.status]).toEqual([400, 400])
   })
 
-  it('lista la asistencia de una sesión con el nombre y apellido de cada estudiante', async () => {
-    const curso = await request(app).post('/api/cursos').send({ nombre: 'Curso con marcas' })
-    const est1 = await request(app).post('/api/estudiantes').send({ nombre: 'Marca', apellido: 'Uno' })
-    const est2 = await request(app).post('/api/estudiantes').send({ nombre: 'Marca', apellido: 'Dos' })
-    await request(app).post(`/api/cursos/${curso.body.id}/inscripciones`).send({ idEstudiante: est1.body.id })
-    await request(app).post(`/api/cursos/${curso.body.id}/inscripciones`).send({ idEstudiante: est2.body.id })
+  it('limita al docente a sesiones de sus asignaciones', async () => {
+    const propia = await conToken(request(app).post('/api/sesiones'), docente)
+      .send({ id_asignacion: 1, fecha: '2026-09-04' })
+    const ajena = await conToken(request(app).post('/api/sesiones'), docente)
+      .send({ id_asignacion: 2, fecha: '2026-09-04' })
+    const listado = await conToken(request(app).get('/api/sesiones'), docente)
+    expect(propia.status).toBe(201)
+    expect(ajena.status).toBe(403)
+    expect(listado.body.every((sesion) => sesion.id_docente === 1)).toBe(true)
+  })
 
-    const sesion = await request(app).post(`/api/cursos/${curso.body.id}/sesiones`).send({ fecha: '2026-07-30' })
-    await request(app).post(`/api/sesiones/${sesion.body.id}/asistencia`).send({ idEstudiante: est1.body.id, estado: 'presente' })
-    await request(app).post(`/api/sesiones/${sesion.body.id}/asistencia`).send({ idEstudiante: est2.body.id, estado: 'justificado' })
+  it('impide cerrar una sesión con estudiantes pendientes', async () => {
+    const sesion = await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: 1, fecha: '2026-09-05' })
+    const res = await conToken(
+      request(app).put(`/api/sesiones/${sesion.body.id_sesion}`), admin
+    ).send({ estado: 'Cerrada' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toContain('pendientes')
+  })
 
-    const res = await request(app).get(`/api/sesiones/${sesion.body.id}/asistencia`)
+  it('cierra cuando todos los estudiantes esperados tienen asistencia', async () => {
+    const sesion = await conToken(request(app).post('/api/sesiones'), admin)
+      .send({ id_asignacion: 1, fecha: '2026-09-06' })
+    const esperados = await conToken(
+      request(app).get(`/api/sesiones/${sesion.body.id_sesion}/asistencia`), admin
+    )
+    for (const estudiante of esperados.body) {
+      await conToken(
+        request(app).post(`/api/sesiones/${sesion.body.id_sesion}/asistencia`), admin
+      ).send({ id_inscripcion: estudiante.id_inscripcion, estado: 'Presente' })
+    }
+    const cierre = await conToken(
+      request(app).put(`/api/sesiones/${sesion.body.id_sesion}`), admin
+    ).send({ estado: 'Cerrada' })
+    expect(cierre.status).toBe(200)
+    expect(cierre.body.estado).toBe('Cerrada')
+  })
 
-    expect(res.status).toBe(200)
-    expect(res.body).toHaveLength(2)
-    const porEstudiante = new Map(res.body.map((r) => [r.id_estudiante, r]))
-    expect(porEstudiante.get(est1.body.id)).toMatchObject({ estado: 'presente', nombre: 'Marca', apellido: 'Uno' })
-    expect(porEstudiante.get(est2.body.id)).toMatchObject({ estado: 'justificado', nombre: 'Marca', apellido: 'Dos' })
+  it('cancela lógicamente una sesión y deja de exigir asistencia', async () => {
+    const sesion = await conToken(request(app).post('/api/sesiones'), docente)
+      .send({ id_asignacion: 1, fecha: '2026-09-07' })
+    const cancelada = await conToken(
+      request(app).delete(`/api/sesiones/${sesion.body.id_sesion}`), docente
+    )
+    const asistencia = await conToken(
+      request(app).get(`/api/sesiones/${sesion.body.id_sesion}/asistencia`), docente
+    )
+    expect(cancelada.status).toBe(200)
+    expect(cancelada.body.estado).toBe('Cancelada')
+    expect(asistencia.body).toEqual([])
   })
 })
