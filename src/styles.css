@@ -946,3 +946,41 @@ tr:last-child td { border-bottom: none; }
   color: var(--moss);
   border: 1px solid rgba(63, 99, 85, 0.18);
 }
+
+/* ---------- Estadísticas y Reportes ---------- */
+
+.stats-note { font-size: 12px; margin: 4px 0 0; }
+
+.meter-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+}
+
+.meter {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: #ece9df;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.meter-bueno { background: var(--moss); }
+.meter-atencion { background: var(--gold); }
+.meter-riesgo { background: var(--clay); }
+.meter-sin-datos { background: transparent; }
+
+.meter-value { min-width: 46px; text-align: right; font-size: 13px; }
+.meter-text-bueno { color: var(--moss); }
+.meter-text-atencion { color: #6b4f16; }
+.meter-text-riesgo { color: var(--clay); }
+.meter-text-sin-datos { color: var(--ink-soft); }
+
+.detail-row table { background: var(--surface); }

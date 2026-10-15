@@ -22,6 +22,16 @@ async function solicitar(ruta, opciones = {}) {
 
 const json = (method, data) => ({ method, body: JSON.stringify(data) })
 
+// Convierte { a: 1, b: '' } en '?a=1', omitiendo valores vacíos.
+function consulta(parametros = {}) {
+  const busqueda = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(parametros)) {
+    if (valor !== undefined && valor !== null && valor !== '') busqueda.set(clave, valor)
+  }
+  const texto = busqueda.toString()
+  return texto ? `?${texto}` : ''
+}
+
 export const api = {
   login: (correo, password) => solicitar('/auth/login', json('POST', { correo, password })),
 
@@ -74,4 +84,11 @@ export const api = {
     `/sesiones/${idSesion}/asistencia`,
     json('POST', { id_inscripcion: idInscripcion, estado })
   ),
+
+  getEstadisticasResumen: (filtros) => solicitar(`/estadisticas/resumen${consulta(filtros)}`),
+  getEstadisticasAsignacion: (id) => solicitar(`/estadisticas/asignacion/${id}`),
+  getEstadisticasEstudiante: (id) => solicitar(`/estadisticas/estudiante/${id}`),
+  getEstudiantesEnRiesgo: (filtros) => solicitar(`/estadisticas/riesgo${consulta(filtros)}`),
+
+  getReporte: (filtros) => solicitar(`/reportes${consulta(filtros)}`),
 }
