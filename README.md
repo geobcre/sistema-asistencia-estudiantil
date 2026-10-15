@@ -134,6 +134,8 @@ Actualmente el sistema cuenta con:
 - Registro y corrección de asistencia.
 - Estados de asistencia: Presente, Ausente, Tarde y Justificado.
 - Cálculo de estudiantes pendientes de registrar.
+- Estadísticas de asistencia por asignación académica, por estudiante y en general, con detección de estudiantes en riesgo (menos de 75 %).
+- Reportes de asistencia con filtros (ciclo, grupo, asignación, estudiante, estado y rango de fechas) y exportación a CSV compatible con Excel.
 - Consulta del historial de asistencia de estudiantes.
 - Persistencia de información mediante SQLite.
 
@@ -177,9 +179,16 @@ El proyecto contempla los siguientes módulos:
 6. Estadísticas
 7. Reportes
 
-Los módulos principales de administración y asistencia ya se encuentran conectados con la API REST y la base de datos.
+Todos los módulos se encuentran conectados con la API REST y la base de datos.
 
-Los módulos de **Estadísticas** y **Reportes** se encuentran pendientes de adaptación al nuevo modelo académico.
+### Reglas de cálculo de las estadísticas
+
+- Presente y Tarde cuentan como asistencia.
+- Una ausencia Justificada no baja el porcentaje: se muestra aparte y queda fuera de la base de cálculo (se puede cambiar con `JUSTIFICADO_PENALIZA` en `backend/src/services/estadisticas.js`).
+- Solo cuentan las sesiones no canceladas en las que la matrícula y la inscripción estaban vigentes.
+- Un estudiante sin registros no genera división por cero: su porcentaje es `null` y la pantalla muestra «—».
+- Un estudiante está en riesgo si su inscripción está activa y su asistencia es menor a 75 %.
+- El administrador consulta todo; el docente solo sus asignaciones académicas.
 
 ## Estructura general
 
@@ -195,6 +204,12 @@ sistema-asistencia-estudiantil/
 │   │   │   ├── auth.js
 │   │   │   └── asignaciones.js
 │   │   │
+│   │   ├── services/
+│   │   │   └── estadisticas.js
+│   │   │
+│   │   ├── utils/
+│   │   │   └── validaciones.js
+│   │   │
 │   │   ├── routes/
 │   │   │   ├── auth.js
 │   │   │   ├── usuarios.js
@@ -206,7 +221,9 @@ sistema-asistencia-estudiantil/
 │   │   │   ├── asignaciones-academicas.js
 │   │   │   ├── matriculas.js
 │   │   │   ├── inscripciones.js
-│   │   │   └── sesiones.js
+│   │   │   ├── sesiones.js
+│   │   │   ├── estadisticas.js
+│   │   │   └── reportes.js
 │   │   │
 │   │   ├── test/
 │   │   ├── app.js
@@ -224,6 +241,9 @@ sistema-asistencia-estudiantil/
 │   │   ├── Asistencia.jsx
 │   │   ├── Estadisticas.jsx
 │   │   └── Reportes.jsx
+│   │
+│   ├── utils/
+│   │   └── csv.js
 │   │
 │   ├── api.js
 │   ├── App.jsx
@@ -279,6 +299,8 @@ Entre los principales recursos disponibles se encuentran:
 /api/matriculas
 /api/inscripciones
 /api/sesiones
+/api/estadisticas   (resumen, asignacion/:id, estudiante/:id, riesgo)
+/api/reportes       (filtros por query string)
 ```
 
 La toma de asistencia se realiza mediante las sesiones y sus inscripciones asociadas.
@@ -309,7 +331,9 @@ El backend cuenta con pruebas automatizadas para verificar funcionalidades como:
 - matrículas;
 - inscripciones;
 - sesiones;
-- asistencia.
+- asistencia;
+- estadísticas (porcentajes, riesgo, permisos por rol);
+- reportes (filtros, validaciones, permisos por rol y carga de 10,000 registros).
 
 Las pruebas pueden ejecutarse desde la carpeta `backend` mediante:
 
@@ -317,7 +341,7 @@ Las pruebas pueden ejecutarse desde la carpeta `backend` mediante:
 npm test
 ```
 
-Actualmente el backend cuenta con **83 pruebas aprobadas**.
+Ejecute `npm test` para ver el conteo actual de pruebas.
 
 ## Trabajo colaborativo
 
@@ -359,4 +383,4 @@ El sistema ya utiliza el nuevo modelo académico para gestionar estudiantes, doc
 
 El frontend consume la API REST del backend para los módulos principales y la información se almacena persistentemente en SQLite.
 
-Los módulos de **Estadísticas** y **Reportes** permanecen pendientes de adaptación a la nueva estructura académica.
+Los módulos de **Estadísticas** y **Reportes** ya fueron adaptados a la nueva estructura académica.
