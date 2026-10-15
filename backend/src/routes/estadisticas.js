@@ -1,406 +1,116 @@
 import { Router } from 'express'
 import { db } from '../db.js'
+import { permitirRoles } from '../middleware/auth.js'
+import { verificarAccesoAsignacion } from '../middleware/asignaciones.js'
+import { leerIds } from '../utils/validaciones.js'
+import {
+  UMBRAL_RIESGO,
+  consultarEstadisticas,
+  resumirPorAsignacion,
+  totalizar
+} from '../services/estadisticas.js'
 
 const router = Router()
 
-const UMBRAL_RIESGO = 75
-
-function calcularPorcentaje(presentes, totalSesiones) {
-  return totalSesiones > 0
-    ? Math.round((presentes / totalSesiones) * 100)
-    : 0
-}
+router.use(permitirRoles('administrador', 'docente'))
 
 // ======================================================
-// COMPROBAR ACCESO A UN CURSO
-// Administrador: cualquier curso.
-// Docente: solamente sus cursos.
+// GET /api/estadisticas/resumen?id_ciclo=&id_grupo=
+// Indicadores generales y detalle por asignación académica.
+// Administrador: todo. Docente: solo sus asignaciones.
 // ======================================================
-function puedeAccederCurso(usuario, idCurso) {
-  const curso = db.prepare(`
-    SELECT *
-    FROM cursos
-    WHERE id = ?
-  `).get(idCurso)
+router.get('/resumen', (req, res) => {
+  const { valores, error } = leerIds(req.query, ['id_ciclo', 'id_grupo'])
+  if (error) return res.status(400).json({ error })
 
-  if (!curso) {
-    return {
-      permitido: false,
-      existe: false,
-      curso: null
-    }
-  }
+  const filas = consultarEstadisticas(req.usuario, valores)
+  const activas = filas.filter((fila) => fila.inscripcion_estado === 'Activa')
 
-  if (usuario.rol === 'administrador') {
-    return {
-      permitido: true,
-      existe: true,
-      curso
-    }
-  }
-
-  if (
-    usuario.rol === 'docente' &&
-    Number(curso.id_docente) === Number(usuario.id_docente)
-  ) {
-    return {
-      permitido: true,
-      existe: true,
-      curso
-    }
-  }
-
-  return {
-    permitido: false,
-    existe: true,
-    curso
-  }
-}
+  return res.json({
+    umbral: UMBRAL_RIESGO,
+    total: {
+      ...totalizar(filas),
+      estudiantes: new Set(filas.map((fila) => fila.id_estudiante)).size,
+      en_riesgo: activas.filter((fila) => fila.en_riesgo).length
+    },
+    asignaciones: resumirPorAsignacion(filas)
+  })
+})
 
 // ======================================================
-// ESTADÍSTICAS POR ESTUDIANTE Y CURSO
+// GET /api/estadisticas/asignacion/:id
+// Estadísticas por estudiante de una asignación académica.
 // ======================================================
-function statsPorEstudianteYCurso({
-  idCurso,
-  idEstudiante
-} = {}) {
-  let sql = `
-    SELECT
-      i.id_estudiante,
-      i.id_curso,
-      COUNT(DISTINCT s.id) AS totalSesiones,
-      COUNT(
-        DISTINCT CASE
-          WHEN a.estado IN ('presente', 'tarde')
-          THEN a.id_sesion
-        END
-      ) AS presentes
-    FROM inscripciones i
-    JOIN sesiones s
-      ON s.id_curso = i.id_curso
-    LEFT JOIN asistencias a
-      ON a.id_sesion = s.id
-      AND a.id_estudiante = i.id_estudiante
-    WHERE 1 = 1
-  `
-
-  const params = []
-
-  if (idCurso) {
-    sql += ' AND i.id_curso = ?'
-    params.push(idCurso)
-  }
-
-  if (idEstudiante) {
-    sql += ' AND i.id_estudiante = ?'
-    params.push(idEstudiante)
-  }
-
-  sql += `
-    GROUP BY
-      i.id_estudiante,
-      i.id_curso
-  `
-
-  return db.prepare(sql).all(...params)
-}
-
-// ======================================================
-// ESTADÍSTICAS COMPLETAS DE UN CURSO
-// ======================================================
-function estadisticasPorCurso(idCurso) {
-  const curso = db.prepare(`
-    SELECT *
-    FROM cursos
-    WHERE id = ?
-  `).get(idCurso)
-
-  if (!curso) {
-    return null
-  }
-
-  const alumnos = db.prepare(`
-    SELECT
-      e.id,
-      e.nombre,
-      e.apellido,
-      e.carne
-    FROM estudiantes e
-    JOIN inscripciones i
-      ON i.id_estudiante = e.id
-    WHERE i.id_curso = ?
-    ORDER BY e.apellido, e.nombre
-  `).all(idCurso)
-
-  const stats = statsPorEstudianteYCurso({
-    idCurso
+router.get('/asignacion/:id', verificarAccesoAsignacion, (req, res) => {
+  const alumnos = consultarEstadisticas(req.usuario, {
+    id_asignacion: Number(req.params.id)
   })
 
-  const statsPorAlumno = new Map(
-    stats.map((s) => [
-      s.id_estudiante,
-      s
-    ])
-  )
-
-  const resultado = alumnos.map((estudiante) => {
-    const {
-      totalSesiones = 0,
-      presentes = 0
-    } = statsPorAlumno.get(estudiante.id) ?? {}
-
-    return {
-      ...estudiante,
-      presentes,
-      totalSesiones,
-      porcentaje: calcularPorcentaje(
-        presentes,
-        totalSesiones
-      )
-    }
+  return res.json({
+    umbral: UMBRAL_RIESGO,
+    asignacion: req.asignacion,
+    resumen: totalizar(alumnos),
+    alumnos
   })
-
-  return {
-    curso,
-    alumnos: resultado
-  }
-}
-
-// ======================================================
-// GET /api/estadisticas/curso/:id
-//
-// Administrador: cualquier curso.
-// Docente: solamente sus cursos.
-// ======================================================
-router.get('/curso/:id', (req, res) => {
-  try {
-    const acceso = puedeAccederCurso(
-      req.usuario,
-      req.params.id
-    )
-
-    if (!acceso.existe) {
-      return res.status(404).json({
-        error: 'Asignatura no encontrada.'
-      })
-    }
-
-    if (!acceso.permitido) {
-      return res.status(403).json({
-        error:
-          'No tiene permisos para consultar las estadísticas de esta asignatura.'
-      })
-    }
-
-    const data = estadisticasPorCurso(
-      req.params.id
-    )
-
-    return res.json(data)
-  } catch (error) {
-    console.error(
-      'Error al consultar estadísticas:',
-      error
-    )
-
-    return res.status(500).json({
-      error:
-        'No se pudieron consultar las estadísticas.'
-    })
-  }
 })
 
 // ======================================================
 // GET /api/estadisticas/estudiante/:id
-//
-// Administrador:
-//   ve todos los cursos del estudiante.
-//
-// Docente:
-//   solamente ve sus propios cursos.
+// Docente: solo ve las asignaciones que le corresponden.
 // ======================================================
 router.get('/estudiante/:id', (req, res) => {
-  try {
-    const estudiante = db.prepare(`
-      SELECT *
-      FROM estudiantes
-      WHERE id = ?
-    `).get(req.params.id)
+  const estudiante = db.prepare(`
+    SELECT id_estudiante, carne, nombre, apellido, estado
+    FROM estudiantes
+    WHERE id_estudiante = ?
+  `).get(req.params.id)
+  if (!estudiante) {
+    return res.status(404).json({ error: 'Estudiante no encontrado.' })
+  }
 
-    if (!estudiante) {
-      return res.status(404).json({
-        error: 'Estudiante no encontrado.'
-      })
-    }
+  const asignaciones = consultarEstadisticas(req.usuario, {
+    id_estudiante: estudiante.id_estudiante
+  })
 
-    let cursos
-
-    if (req.usuario.rol === 'administrador') {
-      cursos = db.prepare(`
-        SELECT c.*
-        FROM cursos c
-        JOIN inscripciones i
-          ON i.id_curso = c.id
-        WHERE i.id_estudiante = ?
-        ORDER BY c.nombre
-      `).all(req.params.id)
-    } else if (req.usuario.rol === 'docente') {
-      cursos = db.prepare(`
-        SELECT c.*
-        FROM cursos c
-        JOIN inscripciones i
-          ON i.id_curso = c.id
-        WHERE i.id_estudiante = ?
-          AND c.id_docente = ?
-        ORDER BY c.nombre
-      `).all(
-        req.params.id,
-        req.usuario.id_docente
-      )
-    } else {
-      return res.status(403).json({
-        error:
-          'No tiene permisos para consultar estadísticas.'
-      })
-    }
-
-    // El docente no debe obtener estadísticas de un
-    // estudiante que no pertenece a ninguno de sus cursos.
-    if (
-      req.usuario.rol === 'docente' &&
-      cursos.length === 0
-    ) {
-      return res.status(403).json({
-        error:
-          'No tiene permisos para consultar las estadísticas de este estudiante.'
-      })
-    }
-
-    const detalle = cursos.map((curso) => {
-      const stats = statsPorEstudianteYCurso({
-        idCurso: curso.id,
-        idEstudiante: req.params.id
-      })
-
-      const registro = stats[0] ?? {
-        totalSesiones: 0,
-        presentes: 0
-      }
-
-      return {
-        idCurso: curso.id,
-        nombre: curso.nombre,
-        presentes: registro.presentes,
-        totalSesiones: registro.totalSesiones,
-        porcentaje: calcularPorcentaje(
-          registro.presentes,
-          registro.totalSesiones
-        )
-      }
-    })
-
-    const promedioGlobal =
-      detalle.length > 0
-        ? Math.round(
-            detalle.reduce(
-              (suma, curso) =>
-                suma + curso.porcentaje,
-              0
-            ) / detalle.length
-          )
-        : 0
-
-    return res.json({
-      idEstudiante: estudiante.id,
-      nombre:
-        `${estudiante.nombre} ${estudiante.apellido}`,
-      porcentajeGlobal: promedioGlobal,
-      cursos: detalle
-    })
-  } catch (error) {
-    console.error(
-      'Error al consultar estudiante:',
-      error
-    )
-
-    return res.status(500).json({
-      error:
-        'No se pudieron consultar las estadísticas del estudiante.'
+  // Un docente no debe consultar a un estudiante que no está en ninguna de sus asignaciones.
+  if (req.usuario.rol === 'docente' && asignaciones.length === 0) {
+    return res.status(403).json({
+      error: 'No tiene permisos para consultar las estadísticas de este estudiante.'
     })
   }
+
+  return res.json({
+    umbral: UMBRAL_RIESGO,
+    estudiante,
+    resumen: totalizar(asignaciones),
+    asignaciones
+  })
 })
 
 // ======================================================
-// GET /api/estadisticas/riesgo
-//
-// Administrador:
-//   revisa todos los cursos.
-//
-// Docente:
-//   solamente revisa sus cursos.
+// GET /api/estadisticas/riesgo?umbral=75&id_ciclo=&id_grupo=
+// Inscripciones activas con porcentaje por debajo del umbral.
 // ======================================================
 router.get('/riesgo', (req, res) => {
-  try {
-    let cursos
+  const { valores, error } = leerIds(req.query, ['id_ciclo', 'id_grupo'])
+  if (error) return res.status(400).json({ error })
 
-    if (req.usuario.rol === 'administrador') {
-      cursos = db.prepare(`
-        SELECT *
-        FROM cursos
-        ORDER BY id
-      `).all()
-    } else if (req.usuario.rol === 'docente') {
-      cursos = db.prepare(`
-        SELECT *
-        FROM cursos
-        WHERE id_docente = ?
-        ORDER BY id
-      `).all(req.usuario.id_docente)
-    } else {
-      return res.status(403).json({
-        error:
-          'No tiene permisos para consultar estudiantes en riesgo.'
-      })
+  let umbral = UMBRAL_RIESGO
+  if (req.query.umbral !== undefined && req.query.umbral !== '') {
+    umbral = Number(req.query.umbral)
+    if (!Number.isInteger(umbral) || umbral < 1 || umbral > 100) {
+      return res.status(400).json({ error: 'El umbral debe ser un entero entre 1 y 100.' })
     }
-
-    const enRiesgo = []
-
-    for (const curso of cursos) {
-      const data = estadisticasPorCurso(
-        curso.id
-      )
-
-      if (!data) {
-        continue
-      }
-
-      data.alumnos
-        .filter(
-          (alumno) =>
-            alumno.totalSesiones > 0 &&
-            alumno.porcentaje < UMBRAL_RIESGO
-        )
-        .forEach((alumno) => {
-          enRiesgo.push({
-            ...alumno,
-            curso: curso.nombre,
-            idCurso: curso.id
-          })
-        })
-    }
-
-    return res.json(enRiesgo)
-  } catch (error) {
-    console.error(
-      'Error al consultar estudiantes en riesgo:',
-      error
-    )
-
-    return res.status(500).json({
-      error:
-        'No se pudieron consultar los estudiantes en riesgo.'
-    })
   }
+
+  const enRiesgo = consultarEstadisticas(req.usuario, { ...valores, soloActivas: true })
+    .filter((fila) => fila.porcentaje !== null && fila.porcentaje < umbral)
+    .sort((a, b) =>
+      a.porcentaje - b.porcentaje
+      || a.apellido.localeCompare(b.apellido)
+      || a.nombre.localeCompare(b.nombre))
+
+  return res.json(enRiesgo)
 })
 
 export default router
