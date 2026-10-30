@@ -59,14 +59,19 @@ export default function Asistencia() {
     } catch (e) { setError(e.message) }
   }
 
+  // Marca como Presente a todos los que siguen en Pendiente.
+  // No toca a quien ya tiene Ausente/Tarde/Justificado, así no se pierde lo que el docente ya marcó.
   async function marcarTodos() {
     if (!sesion || sesion.estado !== 'Abierta') return
-    setProcesando(true)
+    const pendientes = registros.filter((r) => r.estado === 'Pendiente')
+    if (!pendientes.length) return
+    setProcesando(true); setError(''); setMensaje('')
     try {
-      await Promise.all(registros.filter((r) => r.estado === 'Pendiente')
+      await Promise.all(pendientes
         .map((r) => api.marcarAsistencia(sesion.id_sesion, r.id_inscripcion, 'Presente')))
-      await recargar(); setMensaje('Estudiantes pendientes marcados como presentes.')
-    } catch (e) { setError(e.message) }
+      await recargar()
+      setMensaje(`${pendientes.length} estudiante(s) marcados como presentes. Corrija solo a los que faltaron.`)
+    } catch (e) { setError(e.message); await recargar() }
     finally { setProcesando(false) }
   }
 
@@ -108,7 +113,7 @@ export default function Asistencia() {
         <div className="card roster-summary">
           <div className="roster-summary-heading"><h2>{asignacion?.asignatura_nombre}</h2><span>{fecha} · {sesion.estado}</span></div>
           <div className="roster-summary-grid">{Object.entries(resumen).map(([estado, total]) => <div key={estado} className={`roster-summary-item summary-${estado.toLowerCase()}`}><span>{estado}</span><strong>{total}</strong></div>)}</div>
-          {sesion.estado === 'Abierta' && <div className="form-actions"><button className="btn btn-secondary" onClick={marcarTodos} disabled={procesando}>Marcar pendientes presentes</button><button className="btn btn-primary" onClick={() => cambiarEstadoSesion('cerrar')}>Cerrar sesión</button><button className="btn btn-ghost" onClick={() => cambiarEstadoSesion('cancelar')}>Cancelar sesión</button></div>}
+          {sesion.estado === 'Abierta' && <div className="form-actions"><button className="btn btn-secondary" onClick={marcarTodos} disabled={procesando || !resumen.Pendiente}>{procesando ? 'Marcando...' : `✓ Marcar todos presentes (${resumen.Pendiente})`}</button><button className="btn btn-primary" onClick={() => cambiarEstadoSesion('cerrar')}>Cerrar sesión</button><button className="btn btn-ghost" onClick={() => cambiarEstadoSesion('cancelar')}>Cancelar sesión</button></div>}
         </div>
         <div className="card roster-controls">
           <label className="roster-search">Buscar<input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Carné o nombre" /></label>
