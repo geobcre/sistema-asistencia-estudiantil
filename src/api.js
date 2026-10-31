@@ -66,6 +66,7 @@ export const api = {
   eliminarAsignacion: (id) => solicitar(`/asignaciones-academicas/${id}`, { method: 'DELETE' }),
 
   getMatriculas: () => solicitar('/matriculas'),
+  crearMatricula: (data) => solicitar('/matriculas', json('POST', data)),
   getInscripciones: () => solicitar('/inscripciones'),
   crearInscripcion: (data) => solicitar('/inscripciones', json('POST', data)),
   retirarInscripcion: (id, fecha_retiro) => solicitar(

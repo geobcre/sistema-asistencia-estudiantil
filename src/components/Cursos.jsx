@@ -16,6 +16,7 @@ export default function Cursos() {
   const [ciclos, setCiclos] = useState([])
   const [matriculas, setMatriculas] = useState([])
   const [inscripciones, setInscripciones] = useState([])
+  const [estudiantes, setEstudiantes] = useState([])
   const [formAsignatura, setFormAsignatura] = useState(ASIGNATURA_VACIA)
   const [formAsignacion, setFormAsignacion] = useState(ASIGNACION_VACIA)
   const [editAsignatura, setEditAsignatura] = useState(null)
@@ -33,10 +34,12 @@ export default function Cursos() {
       setCargando(true); setError('')
       const datos = await Promise.all([
         api.getAsignaturas(), api.getAsignaciones(), api.getDocentes(),
-        api.getGrupos(), api.getCiclos(), api.getMatriculas(), api.getInscripciones()
+        api.getGrupos(), api.getCiclos(), api.getMatriculas(), api.getInscripciones(),
+        api.getEstudiantes()
       ])
       setAsignaturas(datos[0]); setAsignaciones(datos[1]); setDocentes(datos[2])
       setGrupos(datos[3]); setCiclos(datos[4]); setMatriculas(datos[5]); setInscripciones(datos[6])
+      setEstudiantes(datos[7])
     } catch (e) { setError(e.message) }
     finally { setCargando(false) }
   }
@@ -46,6 +49,15 @@ export default function Cursos() {
   const matriculasDisponibles = (asignacion) => {
     const ocupadas = new Set(inscripcionesActivas(asignacion.id_asignacion).map((i) => i.id_matricula))
     return matriculas.filter((m) => m.estado === 'Activa' && m.id_grupo === asignacion.id_grupo && !ocupadas.has(m.id_matricula))
+  }
+  // Estudiantes activos que todavía NO tienen matrícula activa en el ciclo de esta asignación.
+  // Si se eligen, primero se les crea la matrícula en el grupo de la asignación y luego se inscriben.
+  const estudiantesSinMatricula = (asignacion) => {
+    const ciclo = grupos.find((g) => g.id_grupo === asignacion.id_grupo)?.id_ciclo
+    const conMatricula = new Set(
+      matriculas.filter((m) => m.estado === 'Activa' && m.id_ciclo === ciclo).map((m) => m.id_estudiante)
+    )
+    return estudiantes.filter((e) => e.estado === 'Activo' && !conMatricula.has(e.id_estudiante))
   }
 
   async function guardarAsignatura(e) {
@@ -87,13 +99,26 @@ export default function Cursos() {
   }
   async function inscribir(asignacion) {
     if (!matriculaElegida) return
+    setError(''); setMensaje('')
+    // El valor viene como "m:12" (ya matriculado) o "e:7" (estudiante sin matrícula).
+    const [tipo, id] = matriculaElegida.split(':')
     try {
+      let idMatricula = Number(id)
+      if (tipo === 'e') {
+        const nueva = await api.crearMatricula({
+          id_estudiante: Number(id), id_grupo: asignacion.id_grupo, fecha_matricula: hoy()
+        })
+        idMatricula = nueva.id_matricula
+      }
       await api.crearInscripcion({
-        id_matricula: Number(matriculaElegida), id_asignacion: asignacion.id_asignacion,
+        id_matricula: idMatricula, id_asignacion: asignacion.id_asignacion,
         fecha_inscripcion: hoy()
       })
+      setMensaje(tipo === 'e'
+        ? `Estudiante matriculado en ${asignacion.grado}° ${asignacion.seccion} e inscrito correctamente.`
+        : 'Estudiante inscrito correctamente.')
       setMatriculaElegida(''); await cargar(); setAbierta(asignacion.id_asignacion)
-    } catch (e) { setError(e.message) }
+    } catch (e) { setError(e.message); await cargar() }
   }
   async function retirar(inscripcion) {
     try { await api.retirarInscripcion(inscripcion.id_inscripcion, hoy()); await cargar() }
@@ -144,7 +169,10 @@ export default function Cursos() {
                 const a = asignaciones[indice]
                 if (abierta !== a.id_asignacion) return [fila]
                 const activas = inscripcionesActivas(a.id_asignacion)
-                return [fila, <tr className="detail-row" key={`detalle-${a.id_asignacion}`}><td colSpan="5"><div className="inline-panel"><p className="detail-label">Estudiantes inscritos</p><ul className="chip-list">{activas.map((i) => <li className="chip" key={i.id_inscripcion}>{i.carne} · {i.estudiante_nombre} {i.estudiante_apellido}<button className="chip-remove" onClick={() => retirar(i)}>×</button></li>)}</ul><div className="inline-form"><select value={matriculaElegida} onChange={(e) => setMatriculaElegida(e.target.value)}><option value="">Seleccione una matrícula del grupo</option>{matriculasDisponibles(a).map((m) => <option key={m.id_matricula} value={m.id_matricula}>{m.carne} · {m.estudiante_nombre} {m.estudiante_apellido}</option>)}</select><button className="btn btn-secondary" onClick={() => inscribir(a)} disabled={!matriculaElegida}>Inscribir</button></div></div></td></tr>]
+                return [fila, <tr className="detail-row" key={`detalle-${a.id_asignacion}`}><td colSpan="5"><div className="inline-panel"><p className="detail-label">Estudiantes inscritos</p><ul className="chip-list">{activas.map((i) => <li className="chip" key={i.id_inscripcion}>{i.carne} · {i.estudiante_nombre} {i.estudiante_apellido}<button className="chip-remove" onClick={() => retirar(i)}>×</button></li>)}</ul><div className="inline-form"><select value={matriculaElegida} onChange={(e) => setMatriculaElegida(e.target.value)}><option value="">Seleccione un estudiante</option>
+                  {matriculasDisponibles(a).length > 0 && <optgroup label={`Matriculados en ${a.grado}° ${a.seccion}`}>{matriculasDisponibles(a).map((m) => <option key={`m${m.id_matricula}`} value={`m:${m.id_matricula}`}>{m.carne} · {m.estudiante_nombre} {m.estudiante_apellido}</option>)}</optgroup>}
+                  {estudiantesSinMatricula(a).length > 0 && <optgroup label={`Sin matrícula (se matricula en ${a.grado}° ${a.seccion})`}>{estudiantesSinMatricula(a).map((e) => <option key={`e${e.id_estudiante}`} value={`e:${e.id_estudiante}`}>{e.carne} · {e.nombre} {e.apellido}</option>)}</optgroup>}
+                </select><button className="btn btn-secondary" onClick={() => inscribir(a)} disabled={!matriculaElegida}>Inscribir</button></div></div></td></tr>]
               })}</tbody></table>
         </div>
       </div>

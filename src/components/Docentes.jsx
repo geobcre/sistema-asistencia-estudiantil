@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
 
 const VACIO = { nombre: '', apellido: '', correo: '', estado: 'Activo' }
@@ -11,8 +11,18 @@ export default function Docentes({ store }) {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('Activo')
 
   useEffect(() => { cargar() }, [])
+
+  // Lista filtrada: primero por estado (Activo / Inactivo / Todos) y luego por texto en nombre o correo.
+  const visibles = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase()
+    return docentes.filter((d) =>
+      (filtroEstado === 'Todos' || d.estado === filtroEstado)
+      && `${d.nombre} ${d.apellido} ${d.correo || ''}`.toLowerCase().includes(texto))
+  }, [docentes, busqueda, filtroEstado])
 
   async function cargar() {
     try { setDocentes(await api.getDocentes()) }
@@ -57,6 +67,18 @@ export default function Docentes({ store }) {
     } catch (e) { setError(e.message) }
   }
 
+  // Reactivar reutiliza el PUT de edición, mandando los mismos datos con estado 'Activo'.
+  async function reactivar(docente) {
+    setError(''); setMensaje('')
+    try {
+      const actualizado = await api.editarDocente(docente.id_docente, {
+        nombre: docente.nombre, apellido: docente.apellido, correo: docente.correo || '', estado: 'Activo'
+      })
+      setDocentes((lista) => lista.map((d) => d.id_docente === docente.id_docente ? actualizado : d))
+      setMensaje('Docente reactivado correctamente.')
+    } catch (e) { setError(e.message) }
+  }
+
   return (
     <section>
       <header className="section-header">
@@ -80,14 +102,24 @@ export default function Docentes({ store }) {
           </div>
         </form>
         <div className="card table-card">
+          <div className="roster-controls table-toolbar">
+            <label className="roster-search">Buscar<input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Nombre o correo" /></label>
+            <label>Estado<select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
+              <option value="Activo">Activos</option><option value="Inactivo">Inactivos</option><option value="Todos">Todos</option>
+            </select></label>
+            <p className="roster-match-count">{visibles.length} de {docentes.length}</p>
+          </div>
           {cargando ? <p className="empty-row">Cargando docentes...</p> : <table>
             <thead><tr><th>Nombre</th><th>Correo</th><th>Estado</th><th></th></tr></thead>
-            <tbody>{docentes.map((docente) => <tr key={docente.id_docente}>
+            <tbody>{visibles.map((docente) => <tr key={docente.id_docente}>
               <td>{docente.nombre} {docente.apellido}</td><td>{docente.correo || '—'}</td>
-              <td><span className="pill pill-ok">{docente.estado}</span></td>
+              <td><span className={`pill ${docente.estado === 'Activo' ? 'pill-ok' : 'pill-inactivo'}`}>{docente.estado}</span></td>
               <td className="row-actions"><button className="link-btn" onClick={() => editar(docente)}>Editar</button>
-                {docente.estado === 'Activo' && <button className="link-btn link-danger" onClick={() => inactivar(docente)}>Inactivar</button>}</td>
-            </tr>)}</tbody>
+                {docente.estado === 'Activo'
+                  ? <button className="link-btn link-danger" onClick={() => inactivar(docente)}>Inactivar</button>
+                  : <button className="link-btn" onClick={() => reactivar(docente)}>Reactivar</button>}</td>
+            </tr>)}
+            {!visibles.length && <tr><td colSpan="4" className="empty-row">No hay docentes que coincidan.</td></tr>}</tbody>
           </table>}
         </div>
       </div>
